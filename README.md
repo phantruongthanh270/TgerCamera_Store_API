@@ -696,4 +696,4 @@ Dự án thuộc nền tảng ứng dụng mua sắm TgerCamera e-commerce platf
 ---
 
 **Cập nhật lần cuối:** 28 Tháng 03, 2026  
-**Phiên bản (Version):** 1.0git
+**Phiên bản (Version):** 1.0
