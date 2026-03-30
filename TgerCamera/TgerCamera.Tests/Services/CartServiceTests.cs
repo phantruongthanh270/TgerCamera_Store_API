@@ -29,11 +29,11 @@ public class CartServiceTests
         var mockDbSet = new Mock<DbSet<Cart>>();
         var carts = new List<Cart>
         {
-            new Cart 
-            { 
-                Id = 1, 
-                SessionId = sessionId, 
-                CartItems = new List<CartItem>() 
+            new Cart
+            {
+                Id = 1,
+                SessionId = sessionId,
+                CartItems = new List<CartItem>()
             }
         }.AsQueryable();
 
@@ -83,21 +83,21 @@ public class CartServiceTests
         // Arrange
         int userId = 1;
         string sessionId = "guest-session-789";
-        
-        var guestCart = new Cart 
-        { 
-            Id = 1, 
-            SessionId = sessionId, 
+
+        var guestCart = new Cart
+        {
+            Id = 1,
+            SessionId = sessionId,
             CartItems = new List<CartItem>
             {
                 new CartItem { ProductId = 1, Quantity = 2 }
             }
         };
 
-        var userCart = new Cart 
-        { 
-            Id = 2, 
-            UserId = userId, 
+        var userCart = new Cart
+        {
+            Id = 2,
+            UserId = userId,
             CartItems = new List<CartItem>()
         };
 

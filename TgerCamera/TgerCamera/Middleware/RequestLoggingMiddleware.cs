@@ -93,13 +93,13 @@ public class RequestLoggingMiddleware
         {
             var body = await reader.ReadToEndAsync();
             request.Body.Position = 0;
-            
+
             // Limit body logging to prevent excessive log sizes
             if (body.Length > 1000)
             {
                 return body.Substring(0, 1000) + "... (truncated)";
             }
-            
+
             return body;
         }
     }

@@ -72,14 +72,14 @@ public class AuthControllerTests
             FullName = "Existing User"
         };
 
-        var existingUser = new User 
-        { 
-            Id = 1, 
-            Email = "existing@example.com", 
+        var existingUser = new User
+        {
+            Id = 1,
+            Email = "existing@example.com",
             FullName = "Existing",
             PasswordHash = "hash"
         };
-        
+
         var mockUsers = new Mock<DbSet<User>>();
         var users = new List<User> { existingUser }.AsQueryable();
 
