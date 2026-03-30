@@ -1,0 +1,81 @@
+# Build artifacts
+bin/
+obj/
+
+# Visual Studio temporary files
+.vs/
+
+# User-specific files
+*.suo
+*.user
+*.userosscache
+*.sln.docstates
+
+# Auto-generated code analysis
+*.ide
+
+# NuGet packages
+*.nupkg
+*.snupkg
+
+# Packages folder (ignored by default in newer SDKs)
+**/packages/
+
+# Rider IDE
+.idea/
+
+# Resharper
+_ReSharper*/
+*.ReSharper*
+
+# Sonar
+.sonar/
+
+# Local history
+*.log
+
+# ASP.NET Core logs
+logs/
+
+debug.log
+
+# EF Core migrations snapshot
+**/Migrations/**/ModelSnapshot.cs
+
+# Secret Manager files
+secrets.json
+
+# npm / frontend
+node_modules/
+
+# Python http.server if generated
+__pycache__/
+*.pyc
+
+# macOS
+.DS_Store
+
+# Windows
+Thumbs.db
+
+# coverage
+coverage/
+*.coverage
+*.coveragexml
+
+# temp
+*.tmp
+*.temp
+
+# docs build
+_site/
+
+# vs code
+.vscode/
+
+# database local
+*.mdf
+*.ldf
+
+# output from dotnet publish
+publish/

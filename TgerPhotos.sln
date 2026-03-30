@@ -1,0 +1,29 @@
+Microsoft Visual Studio Solution File, Format Version 12.00
+# Visual Studio Version 17
+VisualStudioVersion = 17.5.2.0
+MinimumVisualStudioVersion = 10.0.40219.1
+Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "TgerCamera", "TgerCamera", "{6290CA0D-5E5C-CD6A-ABF4-94529A080C63}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "TgerCamera", "TgerCamera\TgerCamera\TgerCamera.csproj", "{A3B33647-C775-CBE1-C58F-F472D8855008}"
+EndProject
+Global
+	GlobalSection(SolutionConfigurationPlatforms) = preSolution
+		Debug|Any CPU = Debug|Any CPU
+		Release|Any CPU = Release|Any CPU
+	EndGlobalSection
+	GlobalSection(ProjectConfigurationPlatforms) = postSolution
+		{A3B33647-C775-CBE1-C58F-F472D8855008}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{A3B33647-C775-CBE1-C58F-F472D8855008}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{A3B33647-C775-CBE1-C58F-F472D8855008}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{A3B33647-C775-CBE1-C58F-F472D8855008}.Release|Any CPU.Build.0 = Release|Any CPU
+	EndGlobalSection
+	GlobalSection(SolutionProperties) = preSolution
+		HideSolutionNode = FALSE
+	EndGlobalSection
+	GlobalSection(NestedProjects) = preSolution
+		{A3B33647-C775-CBE1-C58F-F472D8855008} = {6290CA0D-5E5C-CD6A-ABF4-94529A080C63}
+	EndGlobalSection
+	GlobalSection(ExtensibilityGlobals) = postSolution
+		SolutionGuid = {EEB30E0D-CE9B-421A-89BF-B1D641BC9BFB}
+	EndGlobalSection
+EndGlobal
