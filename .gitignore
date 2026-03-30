@@ -79,3 +79,4 @@ _site/
 
 # output from dotnet publish
 publish/
+.fake
