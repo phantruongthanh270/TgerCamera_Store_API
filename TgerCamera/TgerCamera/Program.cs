@@ -26,6 +26,14 @@ builder.Services.AddCors(options =>
 builder.Services.AddDbContext<TgerCameraContext>(options =>
     options.UseSqlServer(builder.Configuration.GetConnectionString("DefaultConnection")));
 
+// Distributed Cache - AddDistributedMemoryCache for local development/testing
+// For production, replace with: builder.Services.AddStackExchangeRedisCache(options => { ... })
+builder.Services.AddDistributedMemoryCache(options =>
+{
+    // Optional: Configure memory cache size if needed
+    options.SizeLimit = 104_857_600; // 100 MB
+});
+
 // AutoMapper
 builder.Services.AddAutoMapper(cfg => { }, typeof(Program).Assembly);
 
@@ -34,6 +42,9 @@ builder.Services.AddSingleton<TgerCamera.Services.ITokenService, TgerCamera.Serv
 
 // Cart service
 builder.Services.AddScoped<TgerCamera.Services.ICartService, TgerCamera.Services.CartService>();
+
+// Order service
+builder.Services.AddScoped<TgerCamera.Services.IOrderService, TgerCamera.Services.OrderService>();
 
 // Configure cookie policy for SessionId cookie
 builder.Services.Configure<Microsoft.AspNetCore.Builder.CookiePolicyOptions>(options =>

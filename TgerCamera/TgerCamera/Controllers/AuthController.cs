@@ -34,7 +34,7 @@ public class AuthController : ControllerBase
 
     /// <summary>
     /// Registers a new user account with the provided credentials.
-    /// Automatically merges guest cart to user cart if a guest session exists.
+    /// Automatically merges guest cart (from SessionId cookie) to user cart if a guest session exists.
     /// </summary>
     /// <param name="dto">The registration data containing email, password, and full name.</param>
     /// <returns>Returns an AuthResultDto with JWT token and expiration time on success, or BadRequest if validation fails.</returns>
@@ -60,10 +60,13 @@ public class AuthController : ControllerBase
 
         var token = _tokenService.CreateToken(user);
 
+        // Merge guest cart from cache to user's database cart
         var sessionId = Request.Cookies.TryGetValue("SessionId", out var sid) ? sid : null;
         if (!string.IsNullOrEmpty(sessionId))
         {
-            await _cartService.MergeCartAsync(user.Id, sessionId);
+            await _cartService.MergeGuestCartToUserAsync(user.Id, sessionId);
+            // Clear the SessionId cookie
+            Response.Cookies.Delete("SessionId");
         }
 
         return Ok(new AuthResultDto { Token = token, ExpiresAt = System.DateTime.UtcNow.AddMinutes(60).ToString("o") });
@@ -71,7 +74,7 @@ public class AuthController : ControllerBase
 
     /// <summary>
     /// Authenticates a user with email and password credentials.
-    /// Automatically merges guest cart to user cart if a guest session exists.
+    /// Automatically merges guest cart (from SessionId cookie) to user cart if a guest session exists.
     /// </summary>
     /// <param name="dto">The login credentials containing email and password.</param>
     /// <returns>Returns an AuthResultDto with JWT token and expiration time on success, or Unauthorized if credentials are invalid.</returns>
@@ -88,10 +91,13 @@ public class AuthController : ControllerBase
 
         var token = _tokenService.CreateToken(user);
 
+        // Merge guest cart from cache to user's database cart
         var sessionId = Request.Cookies.TryGetValue("SessionId", out var sid2) ? sid2 : null;
         if (!string.IsNullOrEmpty(sessionId))
         {
-            await _cartService.MergeCartAsync(user.Id, sessionId);
+            await _cartService.MergeGuestCartToUserAsync(user.Id, sessionId);
+            // Clear the SessionId cookie
+            Response.Cookies.Delete("SessionId");
         }
 
         return Ok(new AuthResultDto { Token = token, ExpiresAt = System.DateTime.UtcNow.AddMinutes(60).ToString("o") });
