@@ -70,10 +70,10 @@ public class OrderService : IOrderService
             };
 
             // 3. Thực thi SP và lấy kết quả
-            var result = await _context.Database.SqlQueryRaw<OrderSpResult>(
+            var result = _context.Database.SqlQueryRaw<OrderSpResult>(
                 "EXEC dbo.sp_CreateOrder @UserId, @SessionId, @ShippingAddressId, @PaymentMethod, @CartId, @Items",
                 parameters
-            ).FirstOrDefaultAsync();
+            ).AsEnumerable().FirstOrDefault();
 
             if (result == null)
             {

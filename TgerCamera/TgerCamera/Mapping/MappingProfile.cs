@@ -71,7 +71,8 @@ public class MappingProfile : Profile
         CreateMap<Dtos.CartItemDto, CartItem>();
 
         // Order mappings
-        CreateMap<Order, Dtos.Order.OrderDto>();
+        CreateMap<Order, Dtos.Order.OrderDto>()
+            .ForMember(dest => dest.Items, opt => opt.MapFrom(src => src.OrderItems));
         CreateMap<Dtos.Order.OrderDto, Order>();
         CreateMap<OrderItem, Dtos.Order.OrderItemDto>();
         CreateMap<Dtos.Order.OrderItemDto, OrderItem>();

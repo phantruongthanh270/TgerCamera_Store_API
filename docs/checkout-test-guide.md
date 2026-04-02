@@ -77,12 +77,7 @@ $body = @{ email = "test@example.com"; password = "pass123" } | ConvertTo-Json
 Invoke-WebRequest -Uri "http://localhost:8000/api/auth/login" -Headers $headers -Body $body
 ```
 
-**Option B: Postman**
-
-- Download: https://www.postman.com/downloads/
-- Import collection hoặc tạo manual requests
-
-**Option C: cURL (nếu cài Git Bash / WSL)**
+**Option B: cURL (Git Bash / WSL / Windows 10+)**
 
 ```bash
 curl -X POST http://localhost:8000/api/auth/login \
