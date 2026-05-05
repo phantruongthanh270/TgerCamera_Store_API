@@ -13,13 +13,13 @@ using TgerCamera.Services;
 namespace TgerCamera.Controllers;
 
 /// <summary>
-/// Handles shopping cart operations including retrieving carts, adding items, updating quantities, and removing items.
-/// Supports both guest carts (via SessionId cookie in Distributed Cache) and authenticated user carts (in Database).
+/// Xử lý các thao tác shopping cart bao gồm lấy cart, thêm item, cập nhật quantity và xoá item.
+/// Hỗ trợ cả guest cart (qua cookie SessionId trong Distributed Cache) và cart của authenticated user (trong Database).
 /// 
-/// Architecture:
-/// - Guest Carts: Stored in Distributed Cache (Redis/MemoryCache) with 24-hour TTL, key format: "cart:{sessionId}"
-/// - User Carts: Stored in SQL Server database, keyed by UserId
-/// - Merge Logic: When authenticated user accesses cart, guest cart automatically merges into user cart with quantity aggregation
+/// Kiến trúc:
+/// - Guest Carts: được lưu trong Distributed Cache (Redis/MemoryCache) với TTL 24 giờ, key format: "cart:{sessionId}"
+/// - User Carts: được lưu trong SQL Server database, khoá theo UserId
+/// - Merge Logic: khi authenticated user truy cập cart, guest cart sẽ tự động merge vào user cart với cơ chế cộng dồn quantity
 /// </summary>
 [ApiController]
 [Route("api/[controller]")]
@@ -29,10 +29,10 @@ public class CartController : ControllerBase
     private readonly IMapper _mapper;
     private readonly ICartService _cartService;
     private const string SESSION_COOKIE_NAME = "SessionId";
-    private const int SESSION_COOKIE_EXPIRATION_DAYS = 30;
+    private const int SESSION_COOKIE_EXPIRATION_DAYS = 15;
 
     /// <summary>
-    /// Initializes a new instance of the CartController.
+    /// Khởi tạo một instance mới của CartController.
     /// </summary>
     public CartController(TgerCameraContext context, IMapper mapper, ICartService cartService)
     {
@@ -42,16 +42,26 @@ public class CartController : ControllerBase
     }
 
     /// <summary>
-    /// Extracts SessionId from request cookies.
+    /// Trích xuất SessionId từ request cookies hoặc từ custom header X-Session-Id.
+    /// Điều này cho phép guest cart requests vẫn hoạt động ngay cả khi trình duyệt không giữ cross-origin cookies.
     /// </summary>
     private string? ReadSessionIdFromCookie()
     {
-        Request.Cookies.TryGetValue(SESSION_COOKIE_NAME, out var sessionId);
-        return sessionId;
+        if (Request.Cookies.TryGetValue(SESSION_COOKIE_NAME, out var sessionId) && !string.IsNullOrEmpty(sessionId))
+        {
+            return sessionId;
+        }
+
+        if (Request.Headers.TryGetValue("X-Session-Id", out var sessionIdHeader) && !string.IsNullOrEmpty(sessionIdHeader))
+        {
+            return sessionIdHeader.ToString();
+        }
+
+        return null;
     }
 
     /// <summary>
-    /// Sets SessionId cookie in response with HttpOnly, Lax SameSite, and 30-day expiration.
+    /// Gán cookie SessionId vào response với HttpOnly, Lax SameSite và thời hạn 30 ngày.
     /// </summary>
     private void SetSessionIdCookie(string sessionId)
     {
@@ -65,7 +75,7 @@ public class CartController : ControllerBase
     }
 
     /// <summary>
-    /// Deletes SessionId cookie when merging guest cart to user cart.
+    /// Xoá cookie SessionId khi merge guest cart sang user cart.
     /// </summary>
     private void DeleteSessionIdCookie()
     {
@@ -73,8 +83,8 @@ public class CartController : ControllerBase
     }
 
     /// <summary>
-    /// Extracts UserId from JWT claims.
-    /// Tries both standard NameIdentifier and JWT Sub claim names.
+    /// Trích xuất UserId từ JWT claims.
+    /// Thử cả claim NameIdentifier chuẩn và claim Sub của JWT.
     /// </summary>
     private int? GetUserIdFromClaims()
     {
@@ -88,17 +98,17 @@ public class CartController : ControllerBase
     }
 
     /// <summary>
-    /// Retrieves the shopping cart for the current session or authenticated user.
+    /// Lấy shopping cart cho session hiện tại hoặc authenticated user hiện tại.
     /// 
-    /// Flow:
-    /// 1. If user is NOT authenticated: returns guest cart from cache (or empty cart)
-    /// 2. If user IS authenticated:
-    ///    a. Merges guest cart from cache into user's database cart (if guest cart exists)
-    ///    b. Deletes SessionId cookie and clears cache after merge
-    ///    c. Returns user's database cart
+    /// Luồng xử lý:
+    /// 1. Nếu user CHƯA authenticated: trả về guest cart từ cache (hoặc empty cart)
+    /// 2. Nếu user ĐÃ authenticated:
+    ///    a. Merge guest cart từ cache vào database cart của user (nếu guest cart tồn tại)
+    ///    b. Xoá cookie SessionId và clear cache sau khi merge
+    ///    c. Trả về database cart của user
     /// </summary>
-    /// <returns>CartDto containing all cart items and metadata</returns>
-    /// <response code="200">Returns the user's or guest cart with items</response>
+    /// <returns>CartDto chứa toàn bộ cart items và metadata</returns>
+    /// <response code="200">Trả về cart của user hoặc guest cùng các items</response>
     [HttpGet]
     public async Task<ActionResult<CartDto>> Get()
     {
@@ -107,17 +117,17 @@ public class CartController : ControllerBase
 
         CartDto? cart = null;
 
-        // If user is authenticated: attempt to merge guest cart and return user cart
+        // Nếu user đã authenticated: thử merge guest cart và trả về user cart
         if (userId.HasValue)
         {
-            // Merge guest cart (if exists in cache) into user's database cart
+            // Merge guest cart (nếu có trong cache) vào database cart của user
             if (!string.IsNullOrEmpty(sessionId))
             {
                 await _cartService.MergeGuestCartToUserAsync(userId.Value, sessionId);
                 DeleteSessionIdCookie();
             }
 
-            // Return user's database cart
+            // Trả về database cart của user
             cart = await _cartService.GetUserCartAsync(userId.Value);
             if (cart == null)
             {
@@ -126,7 +136,7 @@ public class CartController : ControllerBase
         }
         else
         {
-            // Guest user: return cart from cache or empty cart
+            // Guest user: trả về cart từ cache hoặc empty cart
             if (!string.IsNullOrEmpty(sessionId))
             {
                 cart = await _cartService.GetGuestCartAsync(sessionId);
@@ -134,7 +144,7 @@ public class CartController : ControllerBase
 
             if (cart == null)
             {
-                // Create new guest session
+                // Tạo guest session mới
                 sessionId = Guid.NewGuid().ToString();
                 cart = new CartDto { SessionId = sessionId, Items = new List<CartItemDto>() };
                 SetSessionIdCookie(sessionId);
@@ -149,18 +159,18 @@ public class CartController : ControllerBase
     }
 
     /// <summary>
-    /// Adds a product to the shopping cart or increases quantity if already present.
+    /// Thêm một product vào shopping cart hoặc tăng quantity nếu item đã tồn tại.
     /// 
     /// Validation:
-    /// - Quantity must be positive
-    /// - Product must exist and not be deleted
-    /// - Stock must be sufficient
-    /// - Total quantity after adding cannot exceed available stock
+    /// - Quantity phải lớn hơn 0
+    /// - Product phải tồn tại và chưa bị xoá
+    /// - Stock phải đủ
+    /// - Tổng quantity sau khi thêm không được vượt quá stock hiện có
     /// </summary>
-    /// <param name="dto">The add to cart request containing product ID and desired quantity</param>
-    /// <returns>Updated CartDto with the new item</returns>
-    /// <response code="200">Item added/updated successfully</response>
-    /// <response code="400">Validation failed (invalid product, insufficient stock, invalid quantity)</response>
+    /// <param name="dto">Request add to cart chứa product ID và quantity mong muốn</param>
+    /// <returns>CartDto đã cập nhật với item mới</returns>
+    /// <response code="200">Thêm/cập nhật item thành công</response>
+    /// <response code="400">Validation thất bại (product không hợp lệ, không đủ stock, quantity không hợp lệ)</response>
     [HttpPost("items")]
     public async Task<ActionResult<CartDto>> AddItem([FromBody] CartItemCreateDto dto)
     {
@@ -172,10 +182,10 @@ public class CartController : ControllerBase
             var sessionId = ReadSessionIdFromCookie();
             var userId = GetUserIdFromClaims();
 
-            // Add to appropriate storage (cache for guest, database for user)
+            // Thêm vào storage phù hợp (cache cho guest, database cho user)
             var updatedCart = await _cartService.AddItemToCacheOrDbAsync(sessionId, userId, dto.ProductId, dto.Quantity);
 
-            // For guest users: ensure sessionId is set in cookie
+            // Với guest user: đảm bảo SessionId được gán vào cookie
             if (!userId.HasValue && !string.IsNullOrEmpty(updatedCart.SessionId))
             {
                 SetSessionIdCookie(updatedCart.SessionId);
@@ -198,17 +208,17 @@ public class CartController : ControllerBase
     }
 
     /// <summary>
-    /// Updates the quantity of an existing cart item.
-    /// For guest carts: Updates item in cache (ID < 0)
-    /// For user carts: Updates item in database (ID > 0)
-    /// Validates that quantity doesn't exceed product stock.
+    /// Cập nhật quantity của một cart item hiện có.
+    /// Với guest cart: cập nhật item trong cache (ID &lt; 0)
+    /// Với user cart: cập nhật item trong database (ID &gt; 0)
+    /// Validation để đảm bảo quantity không vượt quá stock của product.
     /// </summary>
-    /// <param name="id">The cart item ID to update (negative for guest, positive for user)</param>
-    /// <param name="dto">The update request containing new quantity</param>
-    /// <returns>NoContent on success</returns>
-    /// <response code="204">Quantity updated successfully</response>
-    /// <response code="400">Invalid quantity or exceeds stock</response>
-    /// <response code="404">Cart item not found or doesn't belong to user</response>
+    /// <param name="id">ID của cart item cần cập nhật (âm cho guest, dương cho user)</param>
+    /// <param name="dto">Request cập nhật chứa quantity mới</param>
+    /// <returns>NoContent nếu thành công</returns>
+    /// <response code="204">Cập nhật quantity thành công</response>
+    /// <response code="400">Quantity không hợp lệ hoặc vượt quá stock</response>
+    /// <response code="404">Cart item không tồn tại hoặc không thuộc về user</response>
     [HttpPut("items/{id}")]
     public async Task<IActionResult> UpdateItem(int id, [FromBody] CartItemUpdateDto dto)
     {
@@ -218,7 +228,7 @@ public class CartController : ControllerBase
         var sessionId = ReadSessionIdFromCookie();
         var userId = GetUserIdFromClaims();
 
-        // Handle guest cart items (negative ID)
+        // Xử lý guest cart items (ID âm)
         if (id < 0)
         {
             if (string.IsNullOrEmpty(sessionId))
@@ -232,13 +242,24 @@ public class CartController : ControllerBase
             if (item == null)
                 return NotFound();
 
-            // Update quantity and save to cache
+            var product = await _context.Products
+                .FirstOrDefaultAsync(p => p.Id == item.ProductId && (p.IsDeleted == null || p.IsDeleted == false));
+            if (product == null)
+                return BadRequest(new { message = "Sáº£n pháº©m khÃ´ng cÃ²n tá»“n táº¡i." });
+
+            if (product.StockQuantity < dto.Quantity)
+                return BadRequest(new { message = $"KhÃ´ng Ä‘á»§ tá»“n kho. Sá»‘ lÆ°á»£ng hiá»‡n cÃ³: {product.StockQuantity}." });
+
+            // Cập nhật quantity và lưu lại vào cache
             item.Quantity = dto.Quantity;
             await _cartService.SaveGuestCartAsync(sessionId, guestCart);
             return NoContent();
         }
 
-        // Handle user cart items (positive ID)
+        // Xử lý user cart items (ID dương)
+        if (!userId.HasValue)
+            return Unauthorized(new { message = "Authentication is required to update a saved cart item." });
+
         var dbItem = await _context.CartItems
             .Include(ci => ci.Product)
             .FirstOrDefaultAsync(ci => ci.Id == id);
@@ -246,8 +267,7 @@ public class CartController : ControllerBase
         if (dbItem == null)
             return NotFound();
 
-        // If user is authenticated, verify the item belongs to their cart
-        if (userId.HasValue)
+        // Xác minh item thuộc về user hiện tại
         {
             var cartBelongsToUser = await _context.Carts
                 .AnyAsync(c => c.Id == dbItem.CartId && c.UserId == userId);
@@ -256,7 +276,7 @@ public class CartController : ControllerBase
                 return Unauthorized(new { message = "Cart item does not belong to current user." });
         }
 
-        // Validate stock
+        // Validation stock
         if (dbItem.Product != null && dbItem.Product.StockQuantity < dto.Quantity)
             return BadRequest(new { message = $"Insufficient stock. Available: {dbItem.Product.StockQuantity}" });
 
@@ -268,21 +288,21 @@ public class CartController : ControllerBase
     }
 
     /// <summary>
-    /// Removes a product from the shopping cart.
-    /// For guest carts: Removes from cache using negative ID
-    /// For user carts: Removes from database using positive ID with ownership check
+    /// Xoá một product khỏi shopping cart.
+    /// Với guest cart: xoá khỏi cache bằng ID âm
+    /// Với user cart: xoá khỏi database bằng ID dương và kiểm tra quyền sở hữu
     /// </summary>
-    /// <param name="id">The cart item ID to remove (negative for guest, positive for user)</param>
-    /// <returns>NoContent on success</returns>
-    /// <response code="204">Item removed successfully</response>
-    /// <response code="404">Cart item not found or doesn't belong to user</response>
+    /// <param name="id">ID của cart item cần xoá (âm cho guest, dương cho user)</param>
+    /// <returns>NoContent nếu thành công</returns>
+    /// <response code="204">Xoá item thành công</response>
+    /// <response code="404">Cart item không tồn tại hoặc không thuộc về user</response>
     [HttpDelete("items/{id}")]
     public async Task<IActionResult> RemoveItem(int id)
     {
         var sessionId = ReadSessionIdFromCookie();
         var userId = GetUserIdFromClaims();
 
-        // Handle guest cart items (negative ID)
+        // Xử lý guest cart items (ID âm)
         if (id < 0)
         {
             if (string.IsNullOrEmpty(sessionId))
@@ -296,26 +316,25 @@ public class CartController : ControllerBase
             if (!itemExists)
                 return NotFound();
 
-            // Remove from cache
+            // Xoá khỏi cache
             guestCart.Items.RemoveAll(i => i.Id == id);
             await _cartService.SaveGuestCartAsync(sessionId, guestCart);
             return NoContent();
         }
 
-        // Handle user cart items (positive ID)
+        // Xử lý user cart items (ID dương)
+        if (!userId.HasValue)
+            return Unauthorized(new { message = "Authentication is required to remove a saved cart item." });
+
         var dbItem = await _context.CartItems.FirstOrDefaultAsync(ci => ci.Id == id);
         if (dbItem == null)
             return NotFound();
 
-        // If user is authenticated, verify the item belongs to their cart
-        if (userId.HasValue)
-        {
-            var cartBelongsToUser = await _context.Carts
-                .AnyAsync(c => c.Id == dbItem.CartId && c.UserId == userId);
+        var cartBelongsToUser = await _context.Carts
+            .AnyAsync(c => c.Id == dbItem.CartId && c.UserId == userId);
 
-            if (!cartBelongsToUser)
-                return Unauthorized(new { message = "Cart item does not belong to current user." });
-        }
+        if (!cartBelongsToUser)
+            return Unauthorized(new { message = "Cart item does not belong to current user." });
 
         _context.CartItems.Remove(dbItem);
         await _context.SaveChangesAsync();

@@ -8,10 +8,6 @@ using TgerCamera.Services;
 
 namespace TgerCamera.Controllers;
 
-/// <summary>
-/// Handles order-related operations including checkout, order retrieval, and order status management.
-/// Manages the complete ordering workflow from cart to order tracking.
-/// </summary>
 [ApiController]
 [Route("api/[controller]")]
 public class OrdersController : ControllerBase
@@ -22,14 +18,6 @@ public class OrdersController : ControllerBase
     private readonly ICartService _cartService;
     private readonly ILogger<OrdersController> _logger;
 
-    /// <summary>
-    /// Initializes a new instance of the OrdersController.
-    /// </summary>
-    /// <param name="context">The database context for accessing order data.</param>
-    /// <param name="mapper">AutoMapper instance for DTO mapping.</param>
-    /// <param name="orderService">Order service for creating orders via SP.</param>
-    /// <param name="cartService">Cart service for managing carts.</param>
-    /// <param name="logger">Logger instance.</param>
     public OrdersController(
         TgerCameraContext context,
         IMapper mapper,
@@ -44,43 +32,34 @@ public class OrdersController : ControllerBase
         _logger = logger;
     }
 
-    /// <summary>
-    /// Processes checkout for authenticated users or guests, converting cart items to an order.
-    /// Uses stored procedure sp_CreateOrder for transactional integrity and stock validation.
-    /// Clears the cart after successful order creation.
-    /// </summary>
-    /// <param name="dto">The checkout request containing shipping and payment information.</param>
-    /// <returns>Returns the created order checkout result with order ID and total price.</returns>
     [HttpPost("checkout")]
     public async Task<IActionResult> Checkout([FromBody] CheckoutRequestDto dto)
     {
         try
         {
-            // 1. Extract user info (optional for authenticated users)
-            int? userId = null;
-            if (User.Identity?.IsAuthenticated == true)
+            int? userId = GetCurrentUserId();
+            string? sessionId = dto.SessionId;
+
+            if (string.IsNullOrWhiteSpace(sessionId) && Request.Cookies.TryGetValue("SessionId", out var cookieSessionId))
             {
-                var userIdClaim = User.FindFirst(System.Security.Claims.ClaimTypes.NameIdentifier)?.Value
-                                  ?? User.FindFirst(System.IdentityModel.Tokens.Jwt.JwtRegisteredClaimNames.Sub)?.Value;
-                if (int.TryParse(userIdClaim, out var parsedUserId))
-                    userId = parsedUserId;
+                sessionId = cookieSessionId;
             }
 
-            // 2. Get SessionId from cookie (for guest tracking)
-            string? sessionId = null;
-            if (Request.Cookies.TryGetValue("SessionId", out var cookieSessionId))
-                sessionId = cookieSessionId;
+            if (userId.HasValue)
+            {
+                sessionId = null;
+            }
 
-            // 3. Determine cart source and get items
             List<OrderItemInputDto> cartItems = new();
             int? cartId = null;
 
             if (userId.HasValue)
             {
-                // Authenticated user - get from DB
                 var userCart = await _cartService.GetUserCartAsync(userId.Value);
                 if (userCart?.Items == null || userCart.Items.Count == 0)
-                    return BadRequest("Cart is empty.");
+                {
+                    return BadRequest(new { message = "Cart is empty." });
+                }
 
                 cartItems = userCart.Items
                     .Select(item => new OrderItemInputDto
@@ -90,18 +69,18 @@ public class OrdersController : ControllerBase
                     })
                     .ToList();
 
-                // Get cart ID for clearing after order
-                var dbCart = await _context.Carts
-                    .FirstOrDefaultAsync(c => c.UserId == userId.Value);
-                if (dbCart != null)
-                    cartId = dbCart.Id;
+                cartId = await _context.Carts
+                    .Where(c => c.UserId == userId.Value)
+                    .Select(c => (int?)c.Id)
+                    .FirstOrDefaultAsync();
             }
-            else if (!string.IsNullOrEmpty(sessionId))
+            else if (!string.IsNullOrWhiteSpace(sessionId))
             {
-                // Guest - get from cache
                 var guestCart = await _cartService.GetGuestCartAsync(sessionId);
                 if (guestCart?.Items == null || guestCart.Items.Count == 0)
-                    return BadRequest("Cart is empty.");
+                {
+                    return BadRequest(new { message = "Cart is empty." });
+                }
 
                 cartItems = guestCart.Items
                     .Select(item => new OrderItemInputDto
@@ -113,81 +92,58 @@ public class OrdersController : ControllerBase
             }
             else
             {
-                return BadRequest("No cart found. Please add items to cart first.");
+                return BadRequest(new { message = "No cart found." });
             }
 
-            // 4. Validate shipping address exists
-            var addressExists = await _context.ShippingAddresses
-                .AnyAsync(a => a.Id == dto.ShippingAddressId &&
-                    (a.UserId == userId || a.UserId == null)); // Allow public or user's address
-
-            if (!addressExists && userId.HasValue)
+            var shippingAddress = await ResolveShippingAddressAsync(dto, userId);
+            if (!IsValidShippingAddress(shippingAddress))
             {
-                // For authenticated users, verify ownership
-                addressExists = await _context.ShippingAddresses
-                    .AnyAsync(a => a.Id == dto.ShippingAddressId && a.UserId == userId.Value);
+                return BadRequest(new { message = "Shipping address is required." });
             }
 
-            if (!addressExists)
-                return BadRequest("Invalid shipping address.");
-
-            // 5. Call stored procedure to create order
             var result = await _orderService.CreateOrderAsync(
                 userId,
                 sessionId,
-                dto.ShippingAddressId,
-                dto.PaymentMethod,
+                shippingAddress!,
+                dto.PaymentMethod.Trim(),
                 cartId,
-                cartItems
-            );
+                cartItems);
 
-            // 6. Clear guest cart from cache after successful order
-            if (!userId.HasValue && !string.IsNullOrEmpty(sessionId))
+            if (!userId.HasValue && !string.IsNullOrWhiteSpace(sessionId))
             {
                 await _cartService.ClearGuestCartAsync(sessionId);
                 Response.Cookies.Delete("SessionId");
             }
 
-            _logger.LogInformation($"Order {result.OrderId} created successfully for userId: {userId}, orderId: {result.OrderId}");
-
+            _logger.LogInformation("Order {OrderId} created for userId {UserId}", result.OrderId, userId);
             return Ok(result);
         }
         catch (InvalidOperationException ex)
         {
-            _logger.LogWarning($"Validation error during checkout: {ex.Message}");
+            _logger.LogWarning(ex, "Checkout validation failed");
             return BadRequest(new { error = ex.Message });
         }
         catch (Exception ex)
         {
-            _logger.LogError($"Error during checkout: {ex.Message}");
-            return StatusCode(StatusCodes.Status500InternalServerError,
+            _logger.LogError(ex, "Checkout failed");
+            return StatusCode(
+                StatusCodes.Status500InternalServerError,
                 new { error = "An error occurred while processing your order. Please try again." });
         }
     }
 
-    /// <summary>
-    /// Retrieves all orders for the authenticated user.
-    /// </summary>
-    /// <returns>Returns a list of OrderDto for the user's orders (excluding deleted).</returns>
     [HttpGet("my-orders")]
     [Authorize]
     public async Task<ActionResult<IEnumerable<OrderDto>>> MyOrders()
     {
-        int? userId = null;
-        if (User.Identity?.IsAuthenticated == true)
-        {
-            var userIdClaim = User.FindFirst(System.Security.Claims.ClaimTypes.NameIdentifier)?.Value
-                              ?? User.FindFirst(System.IdentityModel.Tokens.Jwt.JwtRegisteredClaimNames.Sub)?.Value;
-            if (!int.TryParse(userIdClaim, out var parsedUserId))
-                return Unauthorized();
-            userId = parsedUserId;
-        }
-        else
+        var userId = GetCurrentUserId();
+        if (!userId.HasValue)
         {
             return Unauthorized();
         }
 
         var orders = await _context.Orders
+            .AsNoTracking()
             .Where(o => o.UserId == userId && (o.IsDeleted == null || o.IsDeleted == false))
             .Include(o => o.OrderItems)
             .ToListAsync();
@@ -195,112 +151,98 @@ public class OrdersController : ControllerBase
         return Ok(_mapper.Map<IEnumerable<OrderDto>>(orders));
     }
 
-    /// <summary>
-    /// Retrieves all orders in the system. Admin only.
-    /// </summary>
-    /// <returns>Returns a list of all OrderDto in the system (excluding deleted).</returns>
     [HttpGet]
     [Authorize(Roles = "Admin")]
     public async Task<ActionResult<IEnumerable<OrderDto>>> GetAll()
     {
         var orders = await _context.Orders
+            .AsNoTracking()
             .Where(o => o.IsDeleted == null || o.IsDeleted == false)
             .Include(o => o.OrderItems)
             .ToListAsync();
+
         return Ok(_mapper.Map<IEnumerable<OrderDto>>(orders));
     }
 
-    /// <summary>
-    /// Retrieves a specific order by ID. Users can only view their own orders.
-    /// </summary>
-    /// <param name="id">The order ID.</param>
-    /// <returns>Returns the OrderDto if found and authorized, NotFound otherwise.</returns>
     [HttpGet("{id}")]
     [Authorize]
     public async Task<ActionResult<OrderDto>> GetOrder(int id)
     {
-        int? userId = null;
-        if (User.Identity?.IsAuthenticated == true)
+        var userId = GetCurrentUserId();
+        if (!userId.HasValue)
         {
-            var userIdClaim = User.FindFirst(System.Security.Claims.ClaimTypes.NameIdentifier)?.Value
-                              ?? User.FindFirst(System.IdentityModel.Tokens.Jwt.JwtRegisteredClaimNames.Sub)?.Value;
-            if (!int.TryParse(userIdClaim, out var parsedUserId))
-                return Unauthorized();
-            userId = parsedUserId;
-
-            // Check if user is admin
-            var isAdmin = User.IsInRole("Admin");
-
-            var order = await _context.Orders
-                .Where(o => o.Id == id && (o.IsDeleted == null || o.IsDeleted == false))
-                .Include(o => o.OrderItems)
-                .FirstOrDefaultAsync();
-
-            if (order == null)
-                return NotFound();
-
-            // Only allow user to view their own order unless they're admin
-            if (!isAdmin && order.UserId != userId)
-                return Forbid();
-
-            return Ok(_mapper.Map<OrderDto>(order));
+            return Unauthorized();
         }
 
-        return Unauthorized();
+        var isAdmin = User.IsInRole("Admin");
+
+        var order = await _context.Orders
+            .AsNoTracking()
+            .Where(o => o.Id == id && (o.IsDeleted == null || o.IsDeleted == false))
+            .Include(o => o.OrderItems)
+            .FirstOrDefaultAsync();
+
+        if (order == null)
+        {
+            return NotFound();
+        }
+
+        if (!isAdmin && order.UserId != userId)
+        {
+            return Forbid();
+        }
+
+        return Ok(_mapper.Map<OrderDto>(order));
     }
 
-    /// <summary>
-    /// Updates the status of an order. Admin only.
-    /// </summary>
-    /// <param name="id">The order ID to update.</param>
-    /// <param name="status">The new order status (e.g., "Pending", "Processing", "Shipped", "Delivered", "Cancelled").</param>
-    /// <returns>Returns NoContent on success, or NotFound if order doesn't exist.</returns>
     [HttpPut("{id}/status")]
     [Authorize(Roles = "Admin")]
     public async Task<IActionResult> UpdateStatus(int id, [FromBody] UpdateOrderStatusDto dto)
     {
         var order = await _context.Orders.FindAsync(id);
-        if (order == null) return NotFound();
+        if (order == null)
+        {
+            return NotFound();
+        }
 
-        order.Status = dto.Status;
+        order.Status = dto.Status.Trim();
         order.UpdatedAt = DateTime.UtcNow;
         _context.Orders.Update(order);
         await _context.SaveChangesAsync();
 
-        _logger.LogInformation($"Order {id} status updated to {dto.Status}");
+        _logger.LogInformation("Order {OrderId} status updated to {Status}", id, dto.Status);
         return NoContent();
     }
 
-    /// <summary>
-    /// Cancels an order. User can only cancel their own pending orders.
-    /// </summary>
-    /// <param name="id">The order ID to cancel.</param>
-    /// <returns>Returns NoContent on success.</returns>
     [HttpPut("{id}/cancel")]
     [Authorize]
     public async Task<IActionResult> CancelOrder(int id)
     {
-        var userIdClaim = User.FindFirst(System.Security.Claims.ClaimTypes.NameIdentifier)?.Value
-                          ?? User.FindFirst(System.IdentityModel.Tokens.Jwt.JwtRegisteredClaimNames.Sub)?.Value;
-        if (!int.TryParse(userIdClaim, out var userId))
+        var userId = GetCurrentUserId();
+        if (!userId.HasValue)
+        {
             return Unauthorized();
+        }
 
         var order = await _context.Orders
             .Include(o => o.OrderItems)
             .FirstOrDefaultAsync(o => o.Id == id);
 
         if (order == null)
+        {
             return NotFound();
+        }
 
-        // Verify ownership
         if (order.UserId != userId && !User.IsInRole("Admin"))
+        {
             return Forbid();
+        }
 
-        // Only pending orders can be cancelled
         if (order.Status != "Pending")
+        {
             return BadRequest("Only pending orders can be cancelled.");
+        }
 
-        // Restore stock
         foreach (var item in order.OrderItems)
         {
             var product = await _context.Products.FindAsync(item.ProductId);
@@ -316,7 +258,70 @@ public class OrdersController : ControllerBase
         _context.Orders.Update(order);
         await _context.SaveChangesAsync();
 
-        _logger.LogInformation($"Order {id} cancelled by userId {userId}");
+        _logger.LogInformation("Order {OrderId} cancelled by userId {UserId}", id, userId);
         return NoContent();
+    }
+
+    private int? GetCurrentUserId()
+    {
+        var userIdClaim = User.FindFirst(System.Security.Claims.ClaimTypes.NameIdentifier)?.Value
+                          ?? User.FindFirst(System.IdentityModel.Tokens.Jwt.JwtRegisteredClaimNames.Sub)?.Value;
+
+        return int.TryParse(userIdClaim, out var parsedUserId)
+            ? parsedUserId
+            : null;
+    }
+
+    private async Task<ShippingAddressInfoDto?> ResolveShippingAddressAsync(CheckoutRequestDto dto, int? userId)
+    {
+        if (dto.ShippingAddressId.HasValue)
+        {
+            if (!userId.HasValue)
+            {
+                throw new InvalidOperationException("Saved shipping address requires an authenticated user.");
+            }
+
+            var savedAddress = await _context.ShippingAddresses
+                .AsNoTracking()
+                .FirstOrDefaultAsync(a => a.Id == dto.ShippingAddressId.Value && a.UserId == userId.Value);
+
+            if (savedAddress == null)
+            {
+                throw new InvalidOperationException("Shipping address is invalid.");
+            }
+
+            return new ShippingAddressInfoDto
+            {
+                FullName = savedAddress.FullName,
+                Phone = savedAddress.Phone,
+                AddressLine = savedAddress.AddressLine,
+                District = savedAddress.District,
+                City = savedAddress.City
+            };
+        }
+
+        if (dto.ShippingAddress == null)
+        {
+            return null;
+        }
+
+        return new ShippingAddressInfoDto
+        {
+            FullName = dto.ShippingAddress.FullName,
+            Phone = dto.ShippingAddress.Phone,
+            AddressLine = dto.ShippingAddress.AddressLine,
+            District = dto.ShippingAddress.District,
+            City = dto.ShippingAddress.City
+        };
+    }
+
+    private static bool IsValidShippingAddress(ShippingAddressInfoDto? shippingAddress)
+    {
+        return shippingAddress != null
+            && !string.IsNullOrWhiteSpace(shippingAddress.FullName)
+            && !string.IsNullOrWhiteSpace(shippingAddress.Phone)
+            && !string.IsNullOrWhiteSpace(shippingAddress.AddressLine)
+            && !string.IsNullOrWhiteSpace(shippingAddress.District)
+            && !string.IsNullOrWhiteSpace(shippingAddress.City);
     }
 }

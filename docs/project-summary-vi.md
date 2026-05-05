@@ -14,18 +14,18 @@
 
 ## 📊 Thống Kê Dự Án
 
-| Yếu Tố           | Chi Tiết                                 |
-| ---------------- | ---------------------------------------- |
-| **Framework**    | ASP.NET Core 10 (.NET 10.0)              |
-| **Database**     | SQL Server (SQL Type, Stored Procedures) |
-| **Authentication**     | JWT Bearer Tokens                        |
-| **Authorization**   | Dựa trên vai trò (Khách, Quản Trị)       |
-| **ORM**          | Entity Framework Core 9.0                |
-| **Cache**        | Distributed Cache (Memory/Redis)         |
-| **Tài Liệu API** | OpenAPI/Scalar                           |
-| **Testing**     | xUnit + Moq                              |
-| **URL API Base** | http://localhost:8000                    |
-| **Hết Hạn JWT**  | 60 phút (mặc định)                       |
+| Yếu Tố             | Chi Tiết                                 |
+| ------------------ | ---------------------------------------- |
+| **Framework**      | ASP.NET Core 10 (.NET 10.0)              |
+| **Database**       | SQL Server (SQL Type, Stored Procedures) |
+| **Authentication** | JWT Bearer Tokens                        |
+| **Authorization**  | Dựa trên vai trò (Khách, Quản Trị)       |
+| **ORM**            | Entity Framework Core 9.0                |
+| **Cache**          | Distributed Cache (Memory/Redis)         |
+| **Tài Liệu API**   | OpenAPI/Scalar                           |
+| **Testing**        | xUnit + Moq                              |
+| **URL API Base**   | http://localhost:8000                    |
+| **Hết Hạn JWT**    | 60 phút (mặc định)                       |
 
 ---
 
@@ -420,7 +420,7 @@ http://localhost:8000/scalar/v1
 
 ## 🎯 Các Điểm Chính
 
-### 1. **Kiến Trúc Xuất Sắc**
+### 1. **Kiến Trúc**
 
 - 5 lớp: Presentation → Business Logic → Data Mapping → Data Access → Database
 - Tách Biệt Rõ Ràng Các Vấn Đề (SoC)
@@ -452,23 +452,6 @@ http://localhost:8000/scalar/v1
 - Testing Sẵn Sàng (Đơn Vị + Thủ Công)
 
 ---
-
-## 📞 Liên Hệ & Hỗ Trợ
-
-**Phiên Bản:** 1.0  
-**Trạng Thái:** Sẵn Sàng Demo  
-**Môi Trường**: ASP.NET Core 10 | SQL Server | .NET 10.0
-
----
-
-**Tài Liệu Được Cung Cấp:**
-
-1. TOM_TAT_DU_AN_VI.md (Bản Tóm Tắt - Tiếng Việt)
-2. KIEN_TRUC_REVIEW_VI.md (Kiểm Toán Kiến Trúc - Tiếng Việt)
-3. BAO_MAT_REVIEW_VI.md (Kiểm Toán Security - Tiếng Việt)
-4. FINAL_SUMMARY.md (Tóm Tắt Cuối - Tiếng Việt, Tài Liệu Demo)
-5. CHECKOUT_TEST_GUIDE.md (Hướng Dẫn Testing Thanh Toán)
-   dotnet run
 
 # Khi thấy kết quả:
 

@@ -15,7 +15,15 @@ public partial class Order
 
     public string Status { get; set; } = null!;
 
-    public int? ShippingAddressId { get; set; }
+    public string ShippingFullName { get; set; } = null!;
+
+    public string ShippingPhone { get; set; } = null!;
+
+    public string ShippingAddressLine { get; set; } = null!;
+
+    public string ShippingDistrict { get; set; } = null!;
+
+    public string ShippingCity { get; set; } = null!;
 
     public bool? IsDeleted { get; set; }
 
@@ -26,8 +34,6 @@ public partial class Order
     public virtual ICollection<OrderItem> OrderItems { get; set; } = new List<OrderItem>();
 
     public virtual ICollection<Payment> Payments { get; set; } = new List<Payment>();
-
-    public virtual ShippingAddress? ShippingAddress { get; set; }
 
     public virtual User? User { get; set; }
 }

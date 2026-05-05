@@ -1,23 +1,17 @@
+using System.Data;
 using Microsoft.Data.SqlClient;
 using Microsoft.EntityFrameworkCore;
 using TgerCamera.Dtos.Order;
 using TgerCamera.Models;
-using System.Data;
 
 namespace TgerCamera.Services;
 
-/// <summary>
-/// Service cho Order operations - gọi Stored Procedures
-/// </summary>
 public interface IOrderService
 {
-    /// <summary>
-    /// Tạo order thông qua stored procedure sp_CreateOrder
-    /// </summary>
     Task<OrderCheckoutResultDto> CreateOrderAsync(
         int? userId,
         string? sessionId,
-        int shippingAddressId,
+        ShippingAddressInfoDto shippingAddress,
         string paymentMethod,
         int? cartId,
         List<OrderItemInputDto> items);
@@ -37,29 +31,33 @@ public class OrderService : IOrderService
     public async Task<OrderCheckoutResultDto> CreateOrderAsync(
         int? userId,
         string? sessionId,
-        int shippingAddressId,
+        ShippingAddressInfoDto shippingAddress,
         string paymentMethod,
         int? cartId,
         List<OrderItemInputDto> items)
     {
+        ArgumentNullException.ThrowIfNull(shippingAddress);
+
+        var itemsTable = new DataTable();
+        itemsTable.Columns.Add("ProductId", typeof(int));
+        itemsTable.Columns.Add("Quantity", typeof(int));
+
+        foreach (var item in items)
+        {
+            itemsTable.Rows.Add(item.ProductId, item.Quantity);
+        }
+
         try
         {
-            // 1. Chuẩn bị bảng cho Table-Valued Parameter
-            var itemsTable = new DataTable();
-            itemsTable.Columns.Add("ProductId", typeof(int));
-            itemsTable.Columns.Add("Quantity", typeof(int));
-
-            foreach (var item in items)
-            {
-                itemsTable.Rows.Add(item.ProductId, item.Quantity);
-            }
-
-            // 2. Chuẩn bị parameters cho SP
             var parameters = new[]
             {
                 new SqlParameter("@UserId", SqlDbType.Int) { Value = userId ?? (object)DBNull.Value },
                 new SqlParameter("@SessionId", SqlDbType.NVarChar, 100) { Value = sessionId ?? (object)DBNull.Value },
-                new SqlParameter("@ShippingAddressId", SqlDbType.Int) { Value = shippingAddressId },
+                new SqlParameter("@FullName", SqlDbType.NVarChar, 150) { Value = shippingAddress.FullName! },
+                new SqlParameter("@Phone", SqlDbType.NVarChar, 20) { Value = shippingAddress.Phone! },
+                new SqlParameter("@AddressLine", SqlDbType.NVarChar, 255) { Value = shippingAddress.AddressLine! },
+                new SqlParameter("@District", SqlDbType.NVarChar, 100) { Value = shippingAddress.District! },
+                new SqlParameter("@City", SqlDbType.NVarChar, 100) { Value = shippingAddress.City! },
                 new SqlParameter("@PaymentMethod", SqlDbType.NVarChar, 50) { Value = paymentMethod },
                 new SqlParameter("@CartId", SqlDbType.Int) { Value = cartId ?? (object)DBNull.Value },
                 new SqlParameter("@Items", SqlDbType.Structured)
@@ -69,16 +67,17 @@ public class OrderService : IOrderService
                 }
             };
 
-            // 3. Thực thi SP và lấy kết quả
-            var result = _context.Database.SqlQueryRaw<OrderSpResult>(
-                "EXEC dbo.sp_CreateOrder @UserId, @SessionId, @ShippingAddressId, @PaymentMethod, @CartId, @Items",
+            var results = await _context.Database.SqlQueryRaw<OrderSpResult>(
+                "EXEC dbo.sp_CreateOrder @UserId, @SessionId, @FullName, @Phone, @AddressLine, @District, @City, @PaymentMethod, @CartId, @Items",
                 parameters
-            ).AsEnumerable().FirstOrDefault();
+            ).ToListAsync();
+
+            var result = results.FirstOrDefault();
 
             if (result == null)
             {
                 _logger.LogError("sp_CreateOrder returned null result");
-                throw new Exception("Failed to create order");
+                throw new InvalidOperationException("Failed to create order.");
             }
 
             return new OrderCheckoutResultDto
@@ -89,29 +88,19 @@ public class OrderService : IOrderService
                 Message = "Order created successfully"
             };
         }
-        catch (SqlException ex) when (ex.Number == 50001)
+        catch (SqlException ex) when (ex.Number is 50001 or 50002 or 50003)
         {
-            // Custom error từ SP - Insufficient stock
-            _logger.LogWarning($"Stock validation failed: {ex.Message}");
-            throw new InvalidOperationException(ex.Message);
-        }
-        catch (SqlException ex) when (ex.Number == 50002)
-        {
-            // Custom error từ SP - Empty items
-            _logger.LogWarning($"Order validation failed: {ex.Message}");
+            _logger.LogWarning("Order validation failed: {Message}", ex.Message);
             throw new InvalidOperationException(ex.Message);
         }
         catch (Exception ex)
         {
-            _logger.LogError($"Error creating order: {ex.Message}");
+            _logger.LogError(ex, "Error creating order");
             throw;
         }
     }
 }
 
-/// <summary>
-/// Model cho kết quả trả về từ SP
-/// </summary>
 public class OrderSpResult
 {
     public int OrderId { get; set; }

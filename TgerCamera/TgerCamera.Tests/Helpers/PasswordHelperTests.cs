@@ -82,7 +82,7 @@ public class PasswordHelperTests
     [InlineData("short")]
     [InlineData("")]
     [InlineData(null)]
-    public void HashPassword_ShouldHandleEdgeCases(string password)
+    public void HashPassword_ShouldHandleEdgeCases(string? password)
     {
         // Act & Assert
         if (string.IsNullOrEmpty(password))

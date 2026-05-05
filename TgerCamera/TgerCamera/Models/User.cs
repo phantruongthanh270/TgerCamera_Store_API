@@ -7,7 +7,7 @@ public partial class User
 {
     public int Id { get; set; }
 
-    public string Email { get; set; } = null!;
+    public string? Email { get; set; } = null!;
 
     public string PasswordHash { get; set; } = null!;
 
@@ -30,4 +30,6 @@ public partial class User
     public virtual ICollection<ShippingAddress> ShippingAddresses { get; set; } = new List<ShippingAddress>();
 
     public virtual ICollection<Wishlist> Wishlists { get; set; } = new List<Wishlist>();
+
+    public virtual ICollection<RefreshToken> RefreshTokens { get; set; } = new List<RefreshToken>();
 }

@@ -1,204 +1,170 @@
+using System.Security.Claims;
+using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
-using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Logging;
 using Moq;
 using TgerCamera.Controllers;
 using TgerCamera.Dtos.Auth;
-using TgerCamera.Helpers;
 using TgerCamera.Models;
 using TgerCamera.Services;
-using Xunit;
 
 namespace TgerCamera.Tests.Controllers;
 
-/// <summary>
-/// Unit tests for the AuthController class.
-/// Tests user registration, login, and authentication flow.
-/// </summary>
 public class AuthControllerTests
 {
-    private readonly Mock<TgerCameraContext> _mockContext;
-    private readonly Mock<ITokenService> _mockTokenService;
-    private readonly Mock<ICartService> _mockCartService;
-    private readonly AuthController _controller;
+    private readonly Mock<IAuthService> _mockAuthService = new();
+    private readonly Mock<ICartService> _mockCartService = new();
+    private readonly Mock<ITokenService> _mockTokenService = new();
+    private readonly Mock<ILogger<AuthController>> _mockLogger = new();
+    private readonly Mock<TgerCameraContext> _mockContext = new();
 
-    public AuthControllerTests()
+    private AuthController CreateController()
     {
-        _mockContext = new Mock<TgerCameraContext>();
-        _mockTokenService = new Mock<ITokenService>();
-        _mockCartService = new Mock<ICartService>();
-        _controller = new AuthController(_mockContext.Object, _mockTokenService.Object, _mockCartService.Object);
+        var controller = new AuthController(
+            _mockAuthService.Object,
+            _mockCartService.Object,
+            _mockTokenService.Object,
+            _mockLogger.Object,
+            _mockContext.Object);
+
+        controller.ControllerContext = new ControllerContext
+        {
+            HttpContext = new DefaultHttpContext()
+        };
+
+        return controller;
     }
 
     [Fact]
-    public async Task Register_WithValidNewUser_ShouldCreateUserAndReturnSuccess()
+    public async Task Register_WithValidRequest_ShouldReturnOk()
     {
-        // Arrange
-        var registerDto = new RegisterDto
+        var controller = CreateController();
+        var request = new RegisterRequest
         {
             Email = "newuser@example.com",
             Password = "SecurePassword123!",
-            FullName = "New User"
+            FullName = "New User",
+            Phone = "+1234567890"
         };
 
-        var mockUsers = new Mock<DbSet<User>>();
-        var emptyUsers = new List<User>().AsQueryable();
+        _mockAuthService
+            .Setup(service => service.RegisterAsync(request))
+            .ReturnsAsync(new AuthResponse
+            {
+                AccessToken = "access-token",
+                RefreshToken = "refresh-token",
+                User = new UserResponse
+                {
+                    Id = 10,
+                    Email = request.Email,
+                    FullName = request.FullName,
+                    Phone = request.Phone,
+                    Role = "Customer"
+                }
+            });
 
-        mockUsers.As<IQueryable<User>>().Setup(m => m.Provider).Returns(emptyUsers.Provider);
-        mockUsers.As<IQueryable<User>>().Setup(m => m.Expression).Returns(emptyUsers.Expression);
-        mockUsers.As<IQueryable<User>>().Setup(m => m.ElementType).Returns(emptyUsers.ElementType);
-        mockUsers.As<IQueryable<User>>().Setup(m => m.GetEnumerator()).Returns(emptyUsers.GetEnumerator());
+        var result = await controller.Register(request);
 
-        _mockContext.Setup(c => c.Users).Returns(mockUsers.Object);
-        _mockContext.Setup(c => c.SaveChangesAsync(It.IsAny<CancellationToken>())).ReturnsAsync(1);
-        _mockTokenService.Setup(t => t.CreateToken(It.IsAny<User>())).Returns("token123");
-
-        // Act
-        var result = await _controller.Register(registerDto);
-
-        // Assert
         var okResult = Assert.IsType<OkObjectResult>(result);
-        Assert.NotNull(okResult.Value);
-        _mockContext.Verify(c => c.SaveChangesAsync(It.IsAny<CancellationToken>()), Times.Once);
+        var response = Assert.IsType<AuthResponse>(okResult.Value);
+        Assert.Equal("access-token", response.AccessToken);
     }
 
     [Fact]
-    public async Task Register_WithDuplicateEmail_ShouldReturnBadRequest()
+    public async Task Login_WhenServiceRejectsCredentials_ShouldReturnUnauthorized()
     {
-        // Arrange
-        var registerDto = new RegisterDto
+        var controller = CreateController();
+        var request = new LoginRequest
         {
-            Email = "existing@example.com",
-            Password = "SecurePassword123!",
-            FullName = "Existing User"
+            Email = "user@example.com",
+            Password = "WrongPassword123!"
         };
 
-        var existingUser = new User
-        {
-            Id = 1,
-            Email = "existing@example.com",
-            FullName = "Existing",
-            PasswordHash = "hash"
-        };
+        _mockAuthService
+            .Setup(service => service.LoginAsync(request))
+            .ThrowsAsync(new UnauthorizedAccessException("Invalid email or password."));
 
-        var mockUsers = new Mock<DbSet<User>>();
-        var users = new List<User> { existingUser }.AsQueryable();
+        var result = await controller.Login(request);
 
-        mockUsers.As<IQueryable<User>>().Setup(m => m.Provider).Returns(users.Provider);
-        mockUsers.As<IQueryable<User>>().Setup(m => m.Expression).Returns(users.Expression);
-        mockUsers.As<IQueryable<User>>().Setup(m => m.ElementType).Returns(users.ElementType);
-        mockUsers.As<IQueryable<User>>().Setup(m => m.GetEnumerator()).Returns(users.GetEnumerator());
-
-        _mockContext.Setup(c => c.Users).Returns(mockUsers.Object);
-
-        // Act
-        var result = await _controller.Register(registerDto);
-
-        // Assert
-        var badResult = Assert.IsType<BadRequestObjectResult>(result);
-        Assert.NotNull(badResult.Value);
+        Assert.IsType<UnauthorizedObjectResult>(result);
     }
 
     [Fact]
-    public async Task Login_WithValidCredentials_ShouldReturnToken()
+    public async Task Login_WithValidRequest_ShouldReturnOk()
     {
-        // Arrange
-        var password = "CorrectPassword123!";
-        var loginDto = new LoginDto
+        var controller = CreateController();
+        var request = new LoginRequest
         {
             Email = "user@example.com",
-            Password = password
+            Password = "CorrectPassword123!"
         };
 
-        var user = new User
-        {
-            Id = 1,
-            Email = "user@example.com",
-            FullName = "Test User",
-            PasswordHash = PasswordHelper.HashPassword(password),
-            Role = "User"
-        };
+        _mockAuthService
+            .Setup(service => service.LoginAsync(request))
+            .ReturnsAsync(new AuthResponse
+            {
+                AccessToken = "access-token",
+                RefreshToken = "refresh-token",
+                User = new UserResponse
+                {
+                    Id = 1,
+                    Email = request.Email,
+                    FullName = "Test User",
+                    Role = "Customer"
+                }
+            });
 
-        var mockUsers = new Mock<DbSet<User>>();
-        var users = new List<User> { user }.AsQueryable();
+        var result = await controller.Login(request);
 
-        mockUsers.As<IQueryable<User>>().Setup(m => m.Provider).Returns(users.Provider);
-        mockUsers.As<IQueryable<User>>().Setup(m => m.Expression).Returns(users.Expression);
-        mockUsers.As<IQueryable<User>>().Setup(m => m.ElementType).Returns(users.ElementType);
-        mockUsers.As<IQueryable<User>>().Setup(m => m.GetEnumerator()).Returns(users.GetEnumerator());
-
-        _mockContext.Setup(c => c.Users).Returns(mockUsers.Object);
-        _mockTokenService.Setup(t => t.CreateToken(user)).Returns("token123");
-
-        // Act
-        var result = await _controller.Login(loginDto);
-
-        // Assert
         var okResult = Assert.IsType<OkObjectResult>(result);
-        Assert.NotNull(okResult.Value);
-        _mockTokenService.Verify(t => t.CreateToken(user), Times.Once);
+        var response = Assert.IsType<AuthResponse>(okResult.Value);
+        Assert.Equal("refresh-token", response.RefreshToken);
     }
 
     [Fact]
-    public async Task Login_WithWrongPassword_ShouldReturnUnauthorized()
+    public async Task RefreshToken_WithoutBearerToken_ShouldReturnUnauthorized()
     {
-        // Arrange
-        var loginDto = new LoginDto
+        var controller = CreateController();
+        controller.ControllerContext = new ControllerContext
         {
-            Email = "user@example.com",
-            Password = "WrongPassword"
+            HttpContext = new DefaultHttpContext()
         };
 
-        var user = new User
+        var result = await controller.RefreshToken(new RefreshTokenRequest
         {
-            Id = 1,
-            Email = "user@example.com",
-            PasswordHash = PasswordHelper.HashPassword("CorrectPassword123!"),
-            Role = "User"
-        };
+            RefreshToken = "refresh-token"
+        });
 
-        var mockUsers = new Mock<DbSet<User>>();
-        var users = new List<User> { user }.AsQueryable();
-
-        mockUsers.As<IQueryable<User>>().Setup(m => m.Provider).Returns(users.Provider);
-        mockUsers.As<IQueryable<User>>().Setup(m => m.Expression).Returns(users.Expression);
-        mockUsers.As<IQueryable<User>>().Setup(m => m.ElementType).Returns(users.ElementType);
-        mockUsers.As<IQueryable<User>>().Setup(m => m.GetEnumerator()).Returns(users.GetEnumerator());
-
-        _mockContext.Setup(c => c.Users).Returns(mockUsers.Object);
-
-        // Act
-        var result = await _controller.Login(loginDto);
-
-        // Assert
-        var unauthorizedResult = Assert.IsType<UnauthorizedObjectResult>(result);
-        Assert.NotNull(unauthorizedResult.Value);
+        Assert.IsType<UnauthorizedObjectResult>(result);
     }
 
     [Fact]
-    public async Task Login_WithNonexistentEmail_ShouldReturnUnauthorized()
+    public async Task Logout_WithAuthenticatedUser_ShouldReturnOk()
     {
-        // Arrange
-        var loginDto = new LoginDto
+        var controller = CreateController();
+        var httpContext = new DefaultHttpContext
         {
-            Email = "nonexistent@example.com",
-            Password = "AnyPassword123!"
+            User = new ClaimsPrincipal(
+                new ClaimsIdentity(
+                    new[]
+                    {
+                        new Claim(ClaimTypes.NameIdentifier, "5")
+                    },
+                    "TestAuth"))
+        };
+        controller.ControllerContext = new ControllerContext
+        {
+            HttpContext = httpContext
         };
 
-        var mockUsers = new Mock<DbSet<User>>();
-        var emptyUsers = new List<User>().AsQueryable();
+        var request = new RefreshTokenRequest
+        {
+            RefreshToken = "refresh-token"
+        };
 
-        mockUsers.As<IQueryable<User>>().Setup(m => m.Provider).Returns(emptyUsers.Provider);
-        mockUsers.As<IQueryable<User>>().Setup(m => m.Expression).Returns(emptyUsers.Expression);
-        mockUsers.As<IQueryable<User>>().Setup(m => m.ElementType).Returns(emptyUsers.ElementType);
-        mockUsers.As<IQueryable<User>>().Setup(m => m.GetEnumerator()).Returns(emptyUsers.GetEnumerator());
+        var result = await controller.Logout(request);
 
-        _mockContext.Setup(c => c.Users).Returns(mockUsers.Object);
-
-        // Act
-        var result = await _controller.Login(loginDto);
-
-        // Assert
-        var unauthorizedResult = Assert.IsType<UnauthorizedObjectResult>(result);
-        Assert.NotNull(unauthorizedResult.Value);
+        Assert.IsType<OkObjectResult>(result);
+        _mockAuthService.Verify(service => service.LogoutAsync(5, "refresh-token"), Times.Once);
     }
 }

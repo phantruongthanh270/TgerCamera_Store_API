@@ -1,122 +1,96 @@
-using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Caching.Distributed;
 using Moq;
-using TgerCamera.Models;
+using TgerCamera.Dtos;
 using TgerCamera.Services;
-using Xunit;
 
 namespace TgerCamera.Tests.Services;
 
-/// <summary>
-/// Unit tests for the CartService class.
-/// Tests cart retrieval, creation, and cart merging functionality.
-/// </summary>
 public class CartServiceTests
 {
-    private readonly Mock<TgerCameraContext> _mockContext;
-    private readonly CartService _cartService;
-
-    public CartServiceTests()
+    [Fact]
+    public async Task GetGuestCartAsync_WithEmptySessionId_ShouldReturnNull()
     {
-        _mockContext = new Mock<TgerCameraContext>();
-        _cartService = new CartService(_mockContext.Object);
+        var service = CreateService();
+
+        var result = await service.GetGuestCartAsync(string.Empty);
+
+        Assert.Null(result);
     }
 
     [Fact]
-    public async Task GetOrCreateCartBySessionAsync_WithValidSessionId_ShouldReturnCart()
+    public async Task SaveGuestCartAsync_ThenGetGuestCartAsync_ShouldRoundTripCart()
     {
-        // Arrange
-        string sessionId = "test-session-123";
-        var mockDbSet = new Mock<DbSet<Cart>>();
-        var carts = new List<Cart>
+        var service = CreateService();
+        var cart = new CartDto
         {
-            new Cart
-            {
-                Id = 1,
-                SessionId = sessionId,
-                CartItems = new List<CartItem>()
-            }
-        }.AsQueryable();
-
-        mockDbSet.As<IQueryable<Cart>>().Setup(m => m.Provider).Returns(carts.Provider);
-        mockDbSet.As<IQueryable<Cart>>().Setup(m => m.Expression).Returns(carts.Expression);
-        mockDbSet.As<IQueryable<Cart>>().Setup(m => m.ElementType).Returns(carts.ElementType);
-        mockDbSet.As<IQueryable<Cart>>().Setup(m => m.GetEnumerator()).Returns(carts.GetEnumerator());
-
-        _mockContext.Setup(c => c.Carts).Returns(mockDbSet.Object);
-
-        // Act
-        var result = await _cartService.GetOrCreateCartBySessionAsync(sessionId);
-
-        // Assert
-        Assert.NotNull(result);
-        Assert.Equal(sessionId, result.SessionId);
-        Assert.Equal(1, result.Id);
-    }
-
-    [Fact]
-    public async Task GetOrCreateCartBySessionAsync_WithNoExistingCart_ShouldCreateNew()
-    {
-        // Arrange
-        string sessionId = "new-session-456";
-        var mockDbSet = new Mock<DbSet<Cart>>();
-        var emptyCarts = new List<Cart>().AsQueryable();
-
-        mockDbSet.As<IQueryable<Cart>>().Setup(m => m.Provider).Returns(emptyCarts.Provider);
-        mockDbSet.As<IQueryable<Cart>>().Setup(m => m.Expression).Returns(emptyCarts.Expression);
-        mockDbSet.As<IQueryable<Cart>>().Setup(m => m.ElementType).Returns(emptyCarts.ElementType);
-        mockDbSet.As<IQueryable<Cart>>().Setup(m => m.GetEnumerator()).Returns(emptyCarts.GetEnumerator());
-
-        _mockContext.Setup(c => c.Carts).Returns(mockDbSet.Object);
-        _mockContext.Setup(c => c.SaveChangesAsync(It.IsAny<CancellationToken>())).ReturnsAsync(1);
-
-        // Act
-        var result = await _cartService.GetOrCreateCartBySessionAsync(sessionId);
-
-        // Assert
-        Assert.NotNull(result);
-        _mockContext.Verify(c => c.SaveChangesAsync(It.IsAny<CancellationToken>()), Times.Once);
-    }
-
-    [Fact]
-    public async Task MergeCartAsync_ShouldMergeGuestCartToUserCart()
-    {
-        // Arrange
-        int userId = 1;
-        string sessionId = "guest-session-789";
-
-        var guestCart = new Cart
-        {
-            Id = 1,
-            SessionId = sessionId,
-            CartItems = new List<CartItem>
-            {
-                new CartItem { ProductId = 1, Quantity = 2 }
-            }
+            SessionId = "guest-session-123",
+            Items =
+            [
+                new CartItemDto { Id = -1, ProductId = 10, Quantity = 2 }
+            ]
         };
 
-        var userCart = new Cart
+        await service.SaveGuestCartAsync(cart.SessionId!, cart);
+        var result = await service.GetGuestCartAsync(cart.SessionId!);
+
+        Assert.NotNull(result);
+        Assert.Equal("guest-session-123", result!.SessionId);
+        Assert.Single(result.Items);
+        Assert.Equal(10, result.Items[0].ProductId);
+    }
+
+    [Fact]
+    public async Task ClearGuestCartAsync_ShouldRemoveCachedCart()
+    {
+        var service = CreateService();
+        var cart = new CartDto
         {
-            Id = 2,
-            UserId = userId,
-            CartItems = new List<CartItem>()
+            SessionId = "guest-session-456"
         };
 
-        var mockDbSet = new Mock<DbSet<Cart>>();
-        var carts = new List<Cart> { guestCart, userCart }.AsQueryable();
+        await service.SaveGuestCartAsync(cart.SessionId!, cart);
+        await service.ClearGuestCartAsync(cart.SessionId!);
 
-        mockDbSet.As<IQueryable<Cart>>().Setup(m => m.Provider).Returns(carts.Provider);
-        mockDbSet.As<IQueryable<Cart>>().Setup(m => m.Expression).Returns(carts.Expression);
-        mockDbSet.As<IQueryable<Cart>>().Setup(m => m.ElementType).Returns(carts.ElementType);
-        mockDbSet.As<IQueryable<Cart>>().Setup(m => m.GetEnumerator()).Returns(carts.GetEnumerator());
+        var result = await service.GetGuestCartAsync(cart.SessionId!);
+        Assert.Null(result);
+    }
 
-        _mockContext.Setup(c => c.Carts).Returns(mockDbSet.Object);
-        _mockContext.Setup(c => c.SaveChangesAsync(It.IsAny<CancellationToken>())).ReturnsAsync(1);
+    private static CartService CreateService()
+    {
+        return new CartService(new Mock<TgerCamera.Models.TgerCameraContext>().Object, new InMemoryDistributedCacheStub());
+    }
 
-        // Act
-        await _cartService.MergeCartAsync(userId, sessionId);
+    private sealed class InMemoryDistributedCacheStub : IDistributedCache
+    {
+        private readonly Dictionary<string, byte[]> _store = new();
 
-        // Assert
-        // Verify cart merge was called
-        _mockContext.Verify(c => c.SaveChangesAsync(It.IsAny<CancellationToken>()), Times.Once);
+        public byte[]? Get(string key) => _store.TryGetValue(key, out var value) ? value : null;
+
+        public Task<byte[]?> GetAsync(string key, CancellationToken token = default) =>
+            Task.FromResult(Get(key));
+
+        public void Refresh(string key)
+        {
+        }
+
+        public Task RefreshAsync(string key, CancellationToken token = default) =>
+            Task.CompletedTask;
+
+        public void Remove(string key) => _store.Remove(key);
+
+        public Task RemoveAsync(string key, CancellationToken token = default)
+        {
+            Remove(key);
+            return Task.CompletedTask;
+        }
+
+        public void Set(string key, byte[] value, DistributedCacheEntryOptions options) =>
+            _store[key] = value;
+
+        public Task SetAsync(string key, byte[] value, DistributedCacheEntryOptions options, CancellationToken token = default)
+        {
+            Set(key, value, options);
+            return Task.CompletedTask;
+        }
     }
 }

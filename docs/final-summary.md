@@ -222,21 +222,21 @@ Database (SQL Server)
 ### 7. **Các Điểm Cuối API** ✅
 
 | Phương Thức | Điểm Cuối               | Authentication | Mục Đích                        |
-| ----------- | ----------------------- | -------- | ------------------------------- |
-| POST        | /api/auth/register      | ❌       | Đăng ký người dùng              |
-| POST        | /api/auth/login         | ❌       | Đăng nhập người dùng → JWT      |
-| GET         | /api/products           | ❌       | Liệt kê sản phẩm                |
-| GET         | /api/products/{id}      | ❌       | Lấy chi tiết sản phẩm           |
-| POST        | /api/cart/items         | ❌       | Thêm vào giỏ (khách/người dùng) |
-| GET         | /api/cart               | ❌       | Lấy Cart                    |
-| DELETE      | /api/cart/items/{id}    | ❌       | Xóa khỏi giỏ                    |
-| POST        | /api/orders/checkout    | ✅       | Tạo đơn hàng                    |
-| GET         | /api/orders/my-orders   | ✅       | Lấy đơn hàng của người dùng     |
-| GET         | /api/orders/{id}        | ✅       | Lấy chi tiết đơn hàng           |
-| PUT         | /api/orders/{id}/cancel | ✅       | Hủy đơn hàng                    |
-| PUT         | /api/orders/{id}/status | Quản Trị | Cập nhật trạng thái đơn hàng    |
-| GET         | /api/brands             | ❌       | Liệt kê nhãn hiệu               |
-| GET         | /api/categories         | ❌       | Liệt kê danh mục                |
+| ----------- | ----------------------- | -------------- | ------------------------------- |
+| POST        | /api/auth/register      | ❌             | Đăng ký người dùng              |
+| POST        | /api/auth/login         | ❌             | Đăng nhập người dùng → JWT      |
+| GET         | /api/products           | ❌             | Liệt kê sản phẩm                |
+| GET         | /api/products/{id}      | ❌             | Lấy chi tiết sản phẩm           |
+| POST        | /api/cart/items         | ❌             | Thêm vào giỏ (khách/người dùng) |
+| GET         | /api/cart               | ❌             | Lấy Cart                        |
+| DELETE      | /api/cart/items/{id}    | ❌             | Xóa khỏi giỏ                    |
+| POST        | /api/orders/checkout    | ✅             | Tạo đơn hàng                    |
+| GET         | /api/orders/my-orders   | ✅             | Lấy đơn hàng của người dùng     |
+| GET         | /api/orders/{id}        | ✅             | Lấy chi tiết đơn hàng           |
+| PUT         | /api/orders/{id}/cancel | ✅             | Hủy đơn hàng                    |
+| PUT         | /api/orders/{id}/status | Quản Trị       | Cập nhật trạng thái đơn hàng    |
+| GET         | /api/brands             | ❌             | Liệt kê nhãn hiệu               |
+| GET         | /api/categories         | ❌             | Liệt kê danh mục                |
 
 ---
 
@@ -392,28 +392,28 @@ Invoke-WebRequest `
 
 | Tính Năng            | Trạng Thái    | Chất Lượng |
 | -------------------- | ------------- | ---------- |
-| **Authentication**         | ✅ Hoàn Thành | ⭐⭐⭐⭐⭐ |
-| **Authorization**       | ✅ Hoàn Thành | ⭐⭐⭐⭐⭐ |
-| **Quản Lý Cart** | ✅ Hoàn Thành | ⭐⭐⭐⭐⭐ |
+| **Authentication**   | ✅ Hoàn Thành | ⭐⭐⭐⭐⭐ |
+| **Authorization**    | ✅ Hoàn Thành | ⭐⭐⭐⭐⭐ |
+| **Quản Lý Cart**     | ✅ Hoàn Thành | ⭐⭐⭐⭐⭐ |
 | **Xử Lý Đơn Hàng**   | ✅ Hoàn Thành | ⭐⭐⭐⭐⭐ |
 | **Quản Lý Sản Phẩm** | ✅ Hoàn Thành | ⭐⭐⭐⭐   |
 | **Xử Lý Lỗi**        | ✅ Hoàn Thành | ⭐⭐⭐⭐⭐ |
 | **Ghi Nhật Ký**      | ✅ Hoàn Thành | ⭐⭐⭐⭐   |
-| **Security**          | ✅ Hoàn Thành | ⭐⭐⭐⭐⭐ |
-| **Testing**         | ⚠️ Một Phần   | ⭐⭐⭐     |
+| **Security**         | ✅ Hoàn Thành | ⭐⭐⭐⭐⭐ |
+| **Testing**          | ⚠️ Một Phần   | ⭐⭐⭐     |
 | **Tài Liệu**         | ✅ Hoàn Thành | ⭐⭐⭐⭐⭐ |
 
 ### Tuân Thủ Kiến Trúc
 
-| Nguyên Tắc        | Triển Khai               | Điểm       |
-| ----------------- | ------------------------ | ---------- |
-| **SOLID**         | Tuân thủ đầy đủ          | ⭐⭐⭐⭐⭐ |
-| **Kiến Trúc Lớp** | Mô hình 5 lớp            | ⭐⭐⭐⭐⭐ |
-| **Mẫu DI**        | Quản lý container        | ⭐⭐⭐⭐⭐ |
-| **Xử Lý Lỗi**     | Middleware toàn cầu      | ⭐⭐⭐⭐⭐ |
-| **Security**       | Các thực tiễn tốt nhất   | ⭐⭐⭐⭐⭐ |
-| **Database**      | EF Core + xóa mềm        | ⭐⭐⭐⭐⭐ |
-| **Testing**      | Testing đơn vị sẵn sàng | ⭐⭐⭐     |
+| Nguyên Tắc        | Triển Khai              | Điểm       |
+| ----------------- | ----------------------- | ---------- |
+| **SOLID**         | Tuân thủ đầy đủ         | ⭐⭐⭐⭐⭐ |
+| **Kiến Trúc Lớp** | Mô hình 5 lớp           | ⭐⭐⭐⭐⭐ |
+| **Mẫu DI**        | Quản lý container       | ⭐⭐⭐⭐⭐ |
+| **Xử Lý Lỗi**     | Middleware toàn cầu     | ⭐⭐⭐⭐⭐ |
+| **Security**      | Các thực tiễn tốt nhất  | ⭐⭐⭐⭐⭐ |
+| **Database**      | EF Core + xóa mềm       | ⭐⭐⭐⭐⭐ |
+| **Testing**       | Testing đơn vị sẵn sàng | ⭐⭐⭐     |
 
 ---
 

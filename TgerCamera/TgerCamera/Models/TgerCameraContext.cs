@@ -47,6 +47,8 @@ public partial class TgerCameraContext : DbContext
 
     public virtual DbSet<User> Users { get; set; }
 
+    public virtual DbSet<RefreshToken> RefreshTokens { get; set; }
+
     public virtual DbSet<Wishlist> Wishlists { get; set; }
 
 
@@ -69,6 +71,19 @@ public partial class TgerCameraContext : DbContext
 
             entity.Property(e => e.CreatedAt).HasDefaultValueSql("(getdate())");
             entity.Property(e => e.SessionId).HasMaxLength(100);
+            entity.ToTable(tb => tb.HasCheckConstraint(
+                "CK_Carts_UserId_XOR_SessionId",
+                "(([UserId] IS NOT NULL AND [SessionId] IS NULL) OR ([UserId] IS NULL AND [SessionId] IS NOT NULL))"));
+
+            entity.HasIndex(e => e.UserId)
+                .IsUnique()
+                .HasFilter("[UserId] IS NOT NULL")
+                .HasDatabaseName("UX_Carts_UserId");
+
+            entity.HasIndex(e => e.SessionId)
+                .IsUnique()
+                .HasFilter("[SessionId] IS NOT NULL")
+                .HasDatabaseName("UX_Carts_SessionId");
 
             entity.HasOne(d => d.User).WithMany(p => p.Carts)
                 .HasForeignKey(d => d.UserId)
@@ -79,14 +94,20 @@ public partial class TgerCameraContext : DbContext
         modelBuilder.Entity<CartItem>(entity =>
         {
             entity.HasKey(e => e.Id).HasName("PK__CartItem__3214EC0795E94B45");
+            entity.ToTable(tb => tb.HasCheckConstraint("CK_CartItems_Quantity_Positive", "[Quantity] > 0"));
+
+            entity.HasIndex(e => new { e.CartId, e.ProductId })
+                .IsUnique()
+                .HasDatabaseName("UX_CartItems_CartId_ProductId");
 
             entity.HasOne(d => d.Cart).WithMany(p => p.CartItems)
                 .HasForeignKey(d => d.CartId)
+                .OnDelete(DeleteBehavior.Cascade)
                 .HasConstraintName("FK_CartItems_Cart");
 
             entity.HasOne(d => d.Product).WithMany(p => p.CartItems)
                 .HasForeignKey(d => d.ProductId)
-                .OnDelete(DeleteBehavior.ClientSetNull)
+                .OnDelete(DeleteBehavior.Restrict)
                 .HasConstraintName("FK_CartItems_Product");
         });
 
@@ -112,14 +133,28 @@ public partial class TgerCameraContext : DbContext
             entity.Property(e => e.IsDeleted).HasDefaultValue(false);
             entity.HasQueryFilter(e => e.IsDeleted == null || e.IsDeleted == false);
             entity.Property(e => e.SessionId).HasMaxLength(100);
+            entity.Property(e => e.ShippingAddressLine).HasMaxLength(255);
+            entity.Property(e => e.ShippingCity).HasMaxLength(100);
+            entity.Property(e => e.ShippingDistrict).HasMaxLength(100);
+            entity.Property(e => e.ShippingFullName).HasMaxLength(150);
+            entity.Property(e => e.ShippingPhone).HasMaxLength(20);
             entity.Property(e => e.Status)
                 .HasMaxLength(50)
                 .HasDefaultValue("Pending");
             entity.Property(e => e.TotalPrice).HasColumnType("decimal(18, 2)");
+            entity.ToTable(tb =>
+            {
+                tb.HasCheckConstraint(
+                    "CK_Orders_UserId_XOR_SessionId",
+                    "(([UserId] IS NOT NULL AND [SessionId] IS NULL) OR ([UserId] IS NULL AND [SessionId] IS NOT NULL))");
+                tb.HasCheckConstraint("CK_Orders_TotalPrice_NonNegative", "[TotalPrice] >= 0");
+            });
 
-            entity.HasOne(d => d.ShippingAddress).WithMany(p => p.Orders)
-                .HasForeignKey(d => d.ShippingAddressId)
-                .HasConstraintName("FK_Orders_Address");
+            entity.HasIndex(e => new { e.UserId, e.CreatedAt })
+                .HasDatabaseName("IX_Orders_UserId_CreatedAt");
+
+            entity.HasIndex(e => new { e.SessionId, e.CreatedAt })
+                .HasDatabaseName("IX_Orders_SessionId_CreatedAt");
 
             entity.HasOne(d => d.User).WithMany(p => p.Orders)
                 .HasForeignKey(d => d.UserId)
@@ -131,14 +166,21 @@ public partial class TgerCameraContext : DbContext
             entity.HasKey(e => e.Id).HasName("PK__OrderIte__3214EC073801F13E");
 
             entity.Property(e => e.Price).HasColumnType("decimal(18, 2)");
+            entity.Property(e => e.ProductName).HasMaxLength(200);
+            entity.ToTable(tb =>
+            {
+                tb.HasCheckConstraint("CK_OrderItems_Price_NonNegative", "[Price] >= 0");
+                tb.HasCheckConstraint("CK_OrderItems_Quantity_Positive", "[Quantity] > 0");
+            });
 
             entity.HasOne(d => d.Order).WithMany(p => p.OrderItems)
                 .HasForeignKey(d => d.OrderId)
+                .OnDelete(DeleteBehavior.Cascade)
                 .HasConstraintName("FK_OrderItems_Order");
 
             entity.HasOne(d => d.Product).WithMany(p => p.OrderItems)
                 .HasForeignKey(d => d.ProductId)
-                .OnDelete(DeleteBehavior.ClientSetNull)
+                .OnDelete(DeleteBehavior.Restrict)
                 .HasConstraintName("FK_OrderItems_Product");
         });
 
@@ -272,9 +314,16 @@ public partial class TgerCameraContext : DbContext
             entity.Property(e => e.FullName).HasMaxLength(150);
             entity.Property(e => e.IsDefault).HasDefaultValue(false);
             entity.Property(e => e.Phone).HasMaxLength(20);
+            entity.Property(e => e.UpdatedAt).HasDefaultValueSql("(getdate())");
+
+            entity.HasIndex(e => new { e.UserId, e.IsDefault })
+                .IsUnique()
+                .HasFilter("[IsDefault] = 1")
+                .HasDatabaseName("UX_ShippingAddresses_UserId_Default");
 
             entity.HasOne(d => d.User).WithMany(p => p.ShippingAddresses)
                 .HasForeignKey(d => d.UserId)
+                .OnDelete(DeleteBehavior.Cascade)
                 .HasConstraintName("FK_Address_User");
         });
 

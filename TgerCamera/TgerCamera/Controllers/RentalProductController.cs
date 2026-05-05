@@ -10,8 +10,8 @@ using TgerCamera.Models;
 namespace TgerCamera.Controllers;
 
 /// <summary>
-/// Handles rental product operations including listing, retrieving, creating, updating, and deleting rental products.
-/// Provides management of product rental capabilities with pricing and availability tracking.
+/// Xử lý các thao tác rental product bao gồm liệt kê, lấy chi tiết, tạo, cập nhật và xoá rental products.
+/// Cung cấp khả năng quản lý cho thuê product cùng theo dõi pricing và availability.
 /// </summary>
 [ApiController]
 [Route("api/[controller]")]
@@ -21,10 +21,10 @@ public class RentalProductController : ControllerBase
     private readonly IMapper _mapper;
 
     /// <summary>
-    /// Initializes a new instance of the RentalProductController.
+    /// Khởi tạo một instance mới của RentalProductController.
     /// </summary>
-    /// <param name="context">The database context for accessing rental product data.</param>
-    /// <param name="mapper">AutoMapper instance for DTO mapping.</param>
+    /// <param name="context">Database context dùng để truy cập dữ liệu rental product.</param>
+    /// <param name="mapper">Instance AutoMapper dùng cho việc mapping DTO.</param>
     public RentalProductController(TgerCameraContext context, IMapper mapper)
     {
         _context = context;
@@ -32,9 +32,9 @@ public class RentalProductController : ControllerBase
     }
 
     /// <summary>
-    /// Retrieves a list of all available rental products (excluding deleted ones).
+    /// Lấy danh sách tất cả rental products đang khả dụng (không bao gồm item đã xoá).
     /// </summary>
-    /// <returns>Returns a list of RentalProductDto for all active rental products.</returns>
+    /// <returns>Trả về danh sách RentalProductDto cho toàn bộ rental products còn hoạt động.</returns>
     [HttpGet]
     public async Task<ActionResult<IEnumerable<RentalProductDto>>> GetAll()
     {
@@ -45,10 +45,10 @@ public class RentalProductController : ControllerBase
     }
 
     /// <summary>
-    /// Retrieves a specific rental product by ID.
+    /// Lấy một rental product cụ thể theo ID.
     /// </summary>
-    /// <param name="id">The rental product ID to retrieve.</param>
-    /// <returns>Returns the RentalProductDto, or NotFound if product doesn't exist or is deleted.</returns>
+    /// <param name="id">ID của rental product cần lấy.</param>
+    /// <returns>Trả về RentalProductDto, hoặc NotFound nếu product không tồn tại hoặc đã bị xoá.</returns>
     [HttpGet("{id}")]
     public async Task<ActionResult<RentalProductDto>> Get(int id)
     {
@@ -59,10 +59,10 @@ public class RentalProductController : ControllerBase
     }
 
     /// <summary>
-    /// Creates a new rental product. Admin only.
+    /// Tạo mới một rental product. Chỉ dành cho Admin.
     /// </summary>
-    /// <param name="dto">The rental product details including pricing and availability.</param>
-    /// <returns>Returns the created RentalProductDto with ID, or BadRequest if validation fails.</returns>
+    /// <param name="dto">Thông tin rental product bao gồm pricing và availability.</param>
+    /// <returns>Trả về RentalProductDto đã được tạo cùng ID, hoặc BadRequest nếu validation thất bại.</returns>
     [HttpPost]
     [Authorize(Roles = "Admin")]
     public async Task<ActionResult<RentalProductDto>> Create(RentalProductDto dto)
@@ -74,11 +74,11 @@ public class RentalProductController : ControllerBase
     }
 
     /// <summary>
-    /// Updates an existing rental product. Admin only.
+    /// Cập nhật một rental product hiện có. Chỉ dành cho Admin.
     /// </summary>
-    /// <param name="id">The rental product ID to update.</param>
-    /// <param name="dto">The updated rental product details.</param>
-    /// <returns>Returns NoContent on success, or NotFound if product doesn't exist.</returns>
+    /// <param name="id">ID của rental product cần cập nhật.</param>
+    /// <param name="dto">Thông tin rental product đã được cập nhật.</param>
+    /// <returns>Trả về NoContent nếu thành công, hoặc NotFound nếu product không tồn tại.</returns>
     [HttpPut("{id}")]
     [Authorize(Roles = "Admin")]
     public async Task<IActionResult> Update(int id, RentalProductDto dto)
@@ -93,10 +93,10 @@ public class RentalProductController : ControllerBase
     }
 
     /// <summary>
-    /// Deletes a rental product using soft delete (marks as deleted instead of removing from database). Admin only.
+    /// Xoá một rental product bằng soft delete (đánh dấu đã xoá thay vì xoá khỏi database). Chỉ dành cho Admin.
     /// </summary>
-    /// <param name="id">The rental product ID to delete.</param>
-    /// <returns>Returns NoContent on success, or NotFound if product doesn't exist.</returns>
+    /// <param name="id">ID của rental product cần xoá.</param>
+    /// <returns>Trả về NoContent nếu thành công, hoặc NotFound nếu product không tồn tại.</returns>
     [HttpDelete("{id}")]
     [Authorize(Roles = "Admin")]
     public async Task<IActionResult> Delete(int id)

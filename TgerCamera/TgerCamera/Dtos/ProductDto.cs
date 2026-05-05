@@ -8,14 +8,14 @@ public class ProductDto
     public decimal Price { get; set; }
     public int StockQuantity { get; set; }
 
-    // Simple nested objects containing Id and Name
+    // Các nested object đơn giản chỉ chứa Id và Name
     public BrandDto? Brand { get; set; }
     public CategoryDto? Category { get; set; }
     public ProductConditionDto? Condition { get; set; }
 
-    // Main image URL (if any)
+    // URL của ảnh chính (nếu có)
     public string? MainImageUrl { get; set; }
 
-    // Product specifications
+    // Danh sách product specifications
     public List<ProductSpecificationDto> Specifications { get; set; } = new List<ProductSpecificationDto>();
 }

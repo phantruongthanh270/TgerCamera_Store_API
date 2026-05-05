@@ -8,42 +8,42 @@ namespace TgerCamera.Services;
 public interface ICartService
 {
     /// <summary>
-    /// Gets or creates a guest cart from cache using SessionId.
-    /// Returns null if not found in cache (guest hasn't added items yet).
+    /// Lấy hoặc khởi tạo guest cart từ cache bằng SessionId.
+    /// Trả về null nếu không tìm thấy trong cache (guest chưa thêm item nào).
     /// </summary>
     Task<CartDto?> GetGuestCartAsync(string sessionId);
 
     /// <summary>
-    /// Saves or updates a guest cart in distributed cache with 24-hour TTL.
+    /// Lưu mới hoặc cập nhật guest cart trong distributed cache với TTL 24 giờ.
     /// </summary>
     Task SaveGuestCartAsync(string sessionId, CartDto cart);
 
     /// <summary>
-    /// Gets the authenticated user's cart from database, including all items.
+    /// Lấy cart của authenticated user từ database, bao gồm toàn bộ items.
     /// </summary>
     Task<CartDto?> GetUserCartAsync(int userId);
 
     /// <summary>
-    /// Merges guest cart items from cache into user's database cart.
-    /// Updates quantities for existing products, adds new ones.
-    /// Validates stock before merging.
-    /// Clears cache after successful merge.
+    /// Merge các item của guest cart từ cache vào database cart của user.
+    /// Cập nhật quantity cho product đã tồn tại, thêm item mới nếu chưa có.
+    /// Validation stock trước khi merge.
+    /// Clear cache sau khi merge thành công.
     /// </summary>
     Task MergeGuestCartToUserAsync(int userId, string sessionId);
 
     /// <summary>
-    /// Adds an item to guest cart (in cache) or user cart (in database).
-    /// Validates product existence and stock quantity.
+    /// Thêm item vào guest cart (trong cache) hoặc user cart (trong database).
+    /// Validation sự tồn tại của product và stock quantity.
     /// </summary>
     Task<CartDto> AddItemToCacheOrDbAsync(string? sessionId, int? userId, int productId, int quantity);
 
     /// <summary>
-    /// Removes an item from guest cart (in cache) or user cart (in database).
+    /// Xoá item khỏi guest cart (trong cache) hoặc user cart (trong database).
     /// </summary>
     Task RemoveItemFromCacheOrDbAsync(string? sessionId, int? userId, int cartItemId);
 
     /// <summary>
-    /// Clears guest cart from cache.
+    /// Clear guest cart khỏi cache.
     /// </summary>
     Task ClearGuestCartAsync(string sessionId);
 }

@@ -119,6 +119,7 @@ public class CartService : ICartService
         {
             // Validate product exists and is not deleted
             var product = await _context.Products
+                .IgnoreQueryFilters()
                 .FirstOrDefaultAsync(p => p.Id == guestItem.ProductId && (p.IsDeleted == null || p.IsDeleted == false));
 
             if (product == null)
@@ -331,3 +332,5 @@ public class CartService : ICartService
 
     #endregion
 }
+
+

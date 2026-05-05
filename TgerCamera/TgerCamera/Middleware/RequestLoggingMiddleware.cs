@@ -4,8 +4,8 @@ using System.Text;
 namespace TgerCamera.Middleware;
 
 /// <summary>
-/// Middleware for logging HTTP requests and responses.
-/// Logs request details (method, path, query string) and response information (status code, duration).
+/// Middleware dùng để log HTTP requests và responses.
+/// Ghi lại chi tiết request (method, path, query string) và thông tin response (status code, duration).
 /// </summary>
 public class RequestLoggingMiddleware
 {
@@ -13,10 +13,10 @@ public class RequestLoggingMiddleware
     private readonly ILogger<RequestLoggingMiddleware> _logger;
 
     /// <summary>
-    /// Initializes a new instance of the RequestLoggingMiddleware.
+    /// Khởi tạo một instance mới của RequestLoggingMiddleware.
     /// </summary>
-    /// <param name="next">The next middleware in the pipeline.</param>
-    /// <param name="logger">The logger instance for recording request/response information.</param>
+    /// <param name="next">Middleware kế tiếp trong pipeline.</param>
+    /// <param name="logger">Logger instance dùng để ghi thông tin request/response.</param>
     public RequestLoggingMiddleware(RequestDelegate next, ILogger<RequestLoggingMiddleware> logger)
     {
         _next = next;
@@ -24,16 +24,16 @@ public class RequestLoggingMiddleware
     }
 
     /// <summary>
-    /// Invokes the middleware to log HTTP request and response details.
+    /// Gọi middleware để log chi tiết HTTP request và response.
     /// </summary>
-    /// <param name="context">The HTTP context containing request and response information.</param>
-    /// <returns>A task representing the asynchronous operation.</returns>
+    /// <param name="context">HTTP context chứa thông tin request và response.</param>
+    /// <returns>Một task đại diện cho asynchronous operation.</returns>
     public async Task InvokeAsync(HttpContext context)
     {
         var stopwatch = Stopwatch.StartNew();
         var request = context.Request;
 
-        // Log incoming request
+        // Log request đi vào
         var requestBody = await ReadRequestBodyAsync(request);
         _logger.LogInformation(
             "HTTP Request: {Method} {Path}{QueryString} - Content-Type: {ContentType}",
@@ -49,10 +49,10 @@ public class RequestLoggingMiddleware
 
         try
         {
-            // Call next middleware - response streams directly to client
+            // Gọi middleware tiếp theo - response sẽ stream trực tiếp về client
             await _next(context);
 
-            // Log response after completion
+            // Log response sau khi hoàn tất
             stopwatch.Stop();
             _logger.LogInformation(
                 "HTTP Response: {Method} {Path} - Status Code: {StatusCode} - Duration: {Duration}ms",
@@ -76,13 +76,18 @@ public class RequestLoggingMiddleware
     }
 
     /// <summary>
-    /// Reads the request body from the HTTP request stream.
+    /// Đọc request body từ HTTP request stream.
     /// </summary>
-    /// <param name="request">The HTTP request object.</param>
-    /// <returns>The request body as a string, or empty string if body cannot be read.</returns>
+    /// <param name="request">Đối tượng HTTP request.</param>
+    /// <returns>Request body ở dạng string, hoặc empty string nếu body không thể đọc được.</returns>
     private async Task<string> ReadRequestBodyAsync(HttpRequest request)
     {
-        // Only read body for requests that typically have one (POST, PUT, PATCH)
+        if (IsSensitivePath(request.Path))
+        {
+            return string.Empty;
+        }
+
+        // Chỉ đọc body cho các requests thường có body (POST, PUT, PATCH)
         if (!request.ContentLength.HasValue || request.ContentLength == 0)
         {
             return string.Empty;
@@ -94,7 +99,7 @@ public class RequestLoggingMiddleware
             var body = await reader.ReadToEndAsync();
             request.Body.Position = 0;
 
-            // Limit body logging to prevent excessive log sizes
+            // Giới hạn việc log body để tránh log quá lớn
             if (body.Length > 1000)
             {
                 return body.Substring(0, 1000) + "... (truncated)";
@@ -102,5 +107,15 @@ public class RequestLoggingMiddleware
 
             return body;
         }
+    }
+
+    private static bool IsSensitivePath(PathString path)
+    {
+        return path.StartsWithSegments("/api/auth/login", StringComparison.OrdinalIgnoreCase)
+            || path.StartsWithSegments("/api/auth/register", StringComparison.OrdinalIgnoreCase)
+            || path.StartsWithSegments("/api/auth/google-login", StringComparison.OrdinalIgnoreCase)
+            || path.StartsWithSegments("/api/auth/refresh-token", StringComparison.OrdinalIgnoreCase)
+            || path.StartsWithSegments("/api/auth/logout", StringComparison.OrdinalIgnoreCase)
+            || path.StartsWithSegments("/api/orders/checkout", StringComparison.OrdinalIgnoreCase);
     }
 }

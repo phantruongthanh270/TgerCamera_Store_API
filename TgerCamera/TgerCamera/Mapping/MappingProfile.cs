@@ -9,7 +9,7 @@ public class MappingProfile : Profile
 {
     public MappingProfile()
     {
-        // Product mappings
+        // Mapping cho Product
         CreateMap<Product, ProductDto>()
             .ForMember(dest => dest.Brand, opt => opt.MapFrom(src => src.Brand))
             .ForMember(dest => dest.Category, opt => opt.MapFrom(src => src.Category))
@@ -39,19 +39,19 @@ public class MappingProfile : Profile
         CreateMap<ProductSpecification, ProductSpecificationDto>();
         CreateMap<ProductSpecificationDto, ProductSpecification>();
 
-        // RentalProduct mappings
+        // Mapping cho RentalProduct
         CreateMap<RentalProduct, RentalProductDto>();
         CreateMap<RentalProductDto, RentalProduct>();
 
-        // User mappings
+        // Mapping cho User
         CreateMap<User, UserDto>();
         CreateMap<UserDto, User>();
 
-        // Wishlist mappings
+        // Mapping cho Wishlist
         CreateMap<Wishlist, WishlistDto>();
         CreateMap<WishlistDto, Wishlist>();
 
-        // Category, Brand, Condition mappings
+        // Mapping cho Category, Brand, Condition
         CreateMap<Category, CategoryDto>();
         CreateMap<CategoryDto, Category>();
 
@@ -61,7 +61,7 @@ public class MappingProfile : Profile
         CreateMap<ProductCondition, ProductConditionDto>();
         CreateMap<ProductConditionDto, ProductCondition>();
 
-        // Cart mappings
+        // Mapping cho Cart
         CreateMap<Cart, Dtos.CartDto>()
             .ForMember(dest => dest.Items, opt => opt.MapFrom(src => src.CartItems));
         CreateMap<Dtos.CartDto, Cart>()
@@ -70,7 +70,7 @@ public class MappingProfile : Profile
             .ForMember(dest => dest.Product, opt => opt.MapFrom(src => src.Product));
         CreateMap<Dtos.CartItemDto, CartItem>();
 
-        // Order mappings
+        // Mapping cho Order
         CreateMap<Order, Dtos.Order.OrderDto>()
             .ForMember(dest => dest.Items, opt => opt.MapFrom(src => src.OrderItems));
         CreateMap<Dtos.Order.OrderDto, Order>();

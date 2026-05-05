@@ -1,5 +1,51 @@
 @TgerCamera_HostAddress = http://localhost:5259
+@AccessToken = YOUR_ACCESS_TOKEN_HERE
+@RefreshToken = YOUR_REFRESH_TOKEN_HERE
 
+### Register new user (email + password)
+POST {{TgerCamera_HostAddress}}/api/auth/register
+Content-Type: application/json
 
+{
+  "email": "newuser@example.com",
+  "password": "SecurePassword123!",
+  "fullName": "New User",
+  "phone": "+1234567890"
+}
+
+### Login with email and password
+POST {{TgerCamera_HostAddress}}/api/auth/login
+Content-Type: application/json
+
+{
+  "email": "newuser@example.com",
+  "password": "SecurePassword123!"
+}
+
+### Google OAuth Login (replace with real Google ID token from frontend)
+POST {{TgerCamera_HostAddress}}/api/auth/google-login
+Content-Type: application/json
+
+{
+  "idToken": "eyJhbGciOiJSUzI1NiIsImtpZCI6IjEyMyIsInR5cCI6IkpXVCJ9..."
+}
+
+### Refresh Access Token (using refresh token)
+POST {{TgerCamera_HostAddress}}/api/auth/refresh-token
+Content-Type: application/json
+Authorization: Bearer {{AccessToken}}
+
+{
+  "refreshToken": "{{RefreshToken}}"
+}
+
+### Logout (revoke refresh token)
+POST {{TgerCamera_HostAddress}}/api/auth/logout
+Content-Type: application/json
+Authorization: Bearer {{AccessToken}}
+
+{
+  "refreshToken": "{{RefreshToken}}"
+}
 
 ###

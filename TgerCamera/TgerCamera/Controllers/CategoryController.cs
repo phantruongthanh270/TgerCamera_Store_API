@@ -7,8 +7,8 @@ using TgerCamera.Models;
 namespace TgerCamera.Controllers;
 
 /// <summary>
-/// Handles category-related operations including listing product categories.
-/// Supports product categorization with hierarchical parent-child relationships.
+/// Xử lý các thao tác liên quan đến category bao gồm liệt kê product categories.
+/// Hỗ trợ phân loại product với parent-child hierarchy.
 /// </summary>
 [ApiController]
 [Route("api/[controller]")]
@@ -18,10 +18,10 @@ public class CategoryController : ControllerBase
     private readonly IMapper _mapper;
 
     /// <summary>
-    /// Initializes a new instance of the CategoryController.
+    /// Khởi tạo một instance mới của CategoryController.
     /// </summary>
-    /// <param name="context">The database context for accessing category data.</param>
-    /// <param name="mapper">AutoMapper instance for DTO mapping.</param>
+    /// <param name="context">Database context dùng để truy cập dữ liệu category.</param>
+    /// <param name="mapper">Instance AutoMapper dùng cho việc mapping DTO.</param>
     public CategoryController(TgerCameraContext context, IMapper mapper)
     {
         _context = context;
@@ -29,9 +29,9 @@ public class CategoryController : ControllerBase
     }
 
     /// <summary>
-    /// Retrieves a list of all product categories (excluding deleted ones).
+    /// Lấy danh sách tất cả product categories (không bao gồm item đã xoá).
     /// </summary>
-    /// <returns>Returns a list of CategoryDto for all active categories.</returns>
+    /// <returns>Trả về danh sách CategoryDto cho toàn bộ categories còn hoạt động.</returns>
     [HttpGet]
     public async Task<ActionResult<IEnumerable<CategoryDto>>> GetAll()
     {
